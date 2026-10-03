@@ -100,22 +100,52 @@ h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em) rotate(
 .monitor .neck { width: 14%; height: 26px; margin: 0 auto; background: var(--ink); clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); }
 .monitor .foot { width: 38%; height: 7px; margin: 0 auto; background: var(--ink); border-radius: 6px; }
 .screen.lit { border-color: var(--accent); box-shadow: 0 0 0 6px var(--accent-soft); }
-.menubar { display: flex; gap: 6px; align-items: center; height: 9%; padding: 0 5%; border-bottom: 1px solid var(--line); }
-.menubar i { width: 12%; height: 30%; border-radius: 3px; background: var(--win); }
-.menubar i:first-child { width: 4%; }
-.mb-icon { margin-left: auto; width: 6%; height: 50%; border-radius: 3px; background: var(--accent); }
-.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 10%; display: flex; gap: 2%; justify-content: center; align-items: center; border-top: 1px solid var(--line); }
-.taskbar i { width: 4%; height: 50%; border-radius: 3px; background: var(--win); }
-.taskbar i:first-child { background: var(--accent); }
-.win { position: absolute; border-radius: 6px; background: var(--win); border: 1px solid var(--line); }
-.win b { display: block; height: 6%; margin: 7% 8% 0; border-radius: 3px; background: var(--line); }
-.w1 { left: 8%; top: 20%; width: 50%; height: 56%; }
-.w2 { left: 48%; top: 38%; width: 40%; height: 44%; opacity: .7; }
-.w3 { left: 10%; top: 12%; width: 55%; height: 58%; }
-.w4 { left: 55%; top: 28%; width: 36%; height: 46%; opacity: .7; }
-.label { position: absolute; left: 6%; bottom: 13%; font-size: 13px; font-weight: 500; color: var(--muted); }
-.monitor .label { bottom: 15%; }
-.edge { position: absolute; top: 0; bottom: 0; width: 5px; opacity: 0; background: var(--accent); transition: opacity .25s; }
+/* macOS desktop */
+#mac { background: linear-gradient(135deg, #3b2f6b 0%, #8a4a86 35%, #d36a6e 65%, #f2a65a 100%); }
+.menubar { position: relative; z-index: 1; display: flex; gap: 5%; align-items: center; height: 8%; padding: 0 3.5%; background: #ffffff38; backdrop-filter: blur(6px); }
+.menubar > i { width: 7%; height: 26%; border-radius: 2px; background: #ffffffd9; }
+.apple { width: 3%; aspect-ratio: 1; border-radius: 50% 50% 45% 45%; background: #fff; }
+.mb-right { margin-left: auto; display: flex; gap: 10%; align-items: center; width: 22%; height: 100%; justify-content: flex-end; }
+.mb-right i { width: 22%; height: 26%; border-radius: 2px; background: #ffffffd9; }
+.mb-icon { width: 14%; height: 46%; border-radius: 3px; background: var(--accent); }
+.mwin { position: absolute; border-radius: 7px; background: #f6f4f0; box-shadow: 0 8px 20px -8px #0006; overflow: hidden; }
+.mwin b { display: block; height: 6%; margin: 6% 9% 0; border-radius: 3px; background: #dcd7ce; }
+.mwin b:nth-of-type(2) { width: 62%; } .mwin b:nth-of-type(3) { width: 45%; }
+.lights { display: flex; gap: 4%; padding: 5% 6% 2%; }
+.lights i { width: 6%; aspect-ratio: 1; border-radius: 50%; background: #ff5f57; }
+.lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.w1 { left: 9%; top: 17%; width: 52%; height: 52%; }
+.w2 { left: 50%; top: 32%; width: 40%; height: 40%; }
+.dock { position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%); display: flex; gap: 2.2%; align-items: center; justify-content: center;
+  width: 58%; height: 12%; padding: 0 2%; border-radius: 9px; background: #ffffff45; backdrop-filter: blur(6px); border: 1px solid #ffffff40; }
+.dock i { height: 72%; aspect-ratio: 1; border-radius: 24%; background: #4aa3ff; }
+.dock i:nth-child(2) { background: #34c759; } .dock i:nth-child(3) { background: #ff9f0a; }
+.dock i:nth-child(4) { background: #ff375f; } .dock i:nth-child(5) { background: #bf5af2; } .dock i:nth-child(6) { background: #e5e5ea; }
+
+/* Windows desktop */
+#pc { background: radial-gradient(circle at 50% 45%, #6cc0ff 0%, #2a6fe0 30%, #123a9c 62%, #0a1f5c 100%); }
+.winlogo { position: absolute; right: 9%; top: 12%; display: grid; grid-template-columns: 1fr 1fr; gap: 6%; width: 13%; aspect-ratio: 1; opacity: .75; }
+.winlogo i { background: #fff; border-radius: 1px; }
+.pwin { position: absolute; background: #f3f3f3; border-radius: 6px; box-shadow: 0 8px 20px -8px #0008; overflow: hidden; }
+.pwin b { display: block; height: 6%; margin: 6% 9% 0; border-radius: 2px; background: #d6d6d6; }
+.pwin b:nth-of-type(2) { width: 62%; } .pwin b:nth-of-type(3) { width: 45%; }
+.ctrls { display: flex; justify-content: flex-end; gap: 6%; height: 13%; padding: 0 4%; align-items: center; background: #e6e6e6; }
+.ctrls i { width: 6%; height: 1.5px; background: #555; }
+.ctrls i:nth-child(2) { height: 40%; background: none; border: 1.5px solid #555; width: 5%; }
+.ctrls i:nth-child(3) { position: relative; height: 40%; background: none; }
+.ctrls i:nth-child(3)::before, .ctrls i:nth-child(3)::after { content: ""; position: absolute; left: -15%; right: -15%; top: 50%; height: 1.5px; background: #555; transform: rotate(45deg); }
+.ctrls i:nth-child(3)::after { transform: rotate(-45deg); }
+.w3 { left: 8%; top: 12%; width: 54%; height: 54%; }
+.w4 { left: 48%; top: 34%; width: 38%; height: 38%; }
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 10%; display: flex; gap: 2.2%; justify-content: center; align-items: center; background: #1b1e2bee; }
+.taskbar > i { height: 52%; aspect-ratio: 1; border-radius: 3px; background: #ffd04a; }
+.taskbar > i:nth-of-type(2) { background: #4aa3ff; } .taskbar > i:nth-of-type(3) { background: var(--accent); } .taskbar > i:nth-of-type(4) { background: #34c759; }
+.start { display: grid; grid-template-columns: 1fr 1fr; gap: 10%; height: 50%; aspect-ratio: 1; }
+.start i { background: #4cc2ff; border-radius: 1px; }
+.tray { position: absolute; right: 3%; width: 10%; height: 30%; border-radius: 2px; background: #ffffff55; }
+.label { position: absolute; left: 4%; bottom: 19%; z-index: 1; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; color: #fff; background: #0005; }
+.monitor .label { bottom: 14%; }
+.edge { position: absolute; z-index: 2; top: 0; bottom: 0; width: 5px; opacity: 0; background: var(--accent); transition: opacity .25s; }
 .edge.right { right: 0; } .edge.left { left: 0; }
 .edge.on { opacity: 1; }
 .beam { align-self: center; display: flex; justify-content: center; gap: 12%; margin-bottom: 8%; }
@@ -129,7 +159,7 @@ h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em) rotate(
 .chip {
   position: absolute; left: 0; top: 0; z-index: 4; display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 11px; border-radius: 10px; background: var(--ink); color: var(--bg);
-  font-size: 13px; white-space: nowrap; opacity: 0; pointer-events: none; will-change: transform, opacity;
+  font-size: 13px; white-space: nowrap; opacity: 0; pointer-events: none; will-change: transform, opacity; transform-origin: 0 0;
 }
 .chip svg { width: 15px; height: 15px; }
 .keychip { gap: 5px; padding: 7px 10px; }
@@ -229,8 +259,10 @@ footer a { text-decoration-color: var(--accent); text-underline-offset: 3px; }
 
 @media (max-width: 640px) {
   .desk { grid-template-columns: 1fr 10% 1fr; }
-  .chip { font-size: 11px; }
-  .label { font-size: 11px; }
+  .chip { font-size: 9px; padding: 3px 6px; gap: 3px; }
+  .chip svg { width: 10px; height: 10px; }
+  .keychip kbd { font-size: 8px; padding: 2px 4px; }
+  .label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
