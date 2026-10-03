@@ -28,6 +28,17 @@ main { max-width: 1040px; margin: 0 auto; padding: 72px 16px 48px; }
 h1 { font-size: clamp(56px, 11vw, 112px); font-weight: 700; letter-spacing: -.04em; line-height: 1; }
 .lede { max-width: 30ch; margin: 18px auto 0; font-size: clamp(19px, 2.6vw, 24px); color: var(--muted); }
 
+.get { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+.btn {
+  padding: 12px 22px; border-radius: 12px; border: 2px solid var(--ink);
+  color: var(--ink); text-decoration: none; font-weight: 500;
+  transition: transform .15s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--ink); color: var(--bg); }
+.fine { margin-top: 12px; font-size: 14px; color: var(--muted); }
+.fine a { color: var(--muted); text-underline-offset: 3px; }
+
 .stage {
   position: relative; display: grid; grid-template-columns: 1fr 12% 1fr;
   max-width: 760px; margin: 64px auto; aspect-ratio: 16 / 6;
