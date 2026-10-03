@@ -71,10 +71,28 @@ pub fn local_ip() -> Option<std::net::IpAddr> {
     s.local_addr().ok().map(|a| a.ip())
 }
 
+/// The latest pairing session. Starting a new one ends any older one, so only one code is
+/// ever live and the code on screen is always the one being listened for.
+static SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub const REPLACED: &str = "replaced by a newer pairing code";
+
 /// Wait (up to 5 minutes) for the other machine to join with `code`.
-pub fn host(cfg: &Config, code: &str) -> Res<Peer> {
-    let listener = TcpListener::bind(("0.0.0.0", PAIR_PORT)).map_err(|e| format!("port {PAIR_PORT}: {e}"))?;
-    listener.set_nonblocking(true).unwrap();
+/// `show` is called once the code is actually live, never before.
+pub fn host(cfg: &Config, code: &str, show: impl FnOnce()) -> Res<Peer> {
+    use std::sync::atomic::Ordering;
+    let me = SESSION.fetch_add(1, Ordering::SeqCst) + 1;
+    // An older session notices within 200 ms and releases the port.
+    let bind_deadline = Instant::now() + Duration::from_secs(2);
+    let listener = loop {
+        match TcpListener::bind(("0.0.0.0", PAIR_PORT)) {
+            Ok(l) => break l,
+            Err(e) if Instant::now() > bind_deadline => return Err(format!("port {PAIR_PORT}: {e}")),
+            Err(_) => std::thread::sleep(Duration::from_millis(100)),
+        }
+    };
+    listener.set_nonblocking(true).map_err(|e| e.to_string())?;
+    show();
     let daemon = ServiceDaemon::new().ok();
     if let Some(d) = &daemon {
         let name = crate::machine_name();
@@ -89,6 +107,9 @@ pub fn host(cfg: &Config, code: &str) -> Res<Peer> {
         if Instant::now() > deadline {
             break Err("nobody joined within 5 minutes".into());
         }
+        if SESSION.load(Ordering::SeqCst) != me {
+            break Err(REPLACED.into());
+        }
         if failures >= MAX_ATTEMPTS {
             break Err("too many wrong codes; start pairing again for a new one".into());
         }
@@ -98,7 +119,11 @@ pub fn host(cfg: &Config, code: &str) -> Res<Peer> {
                 match exchange(&mut s, code, cfg, true) {
                     Ok(p) => break Ok(p),
                     Err(e) => {
-                        failures += 1;
+                        // Only a real guess counts; a connection that drops early (a port
+                        // scan, a network blip) learns nothing and costs nothing.
+                        if e == "wrong code" || e == "pairing failed" {
+                            failures += 1;
+                        }
                         log::warn!("pair attempt from {from} failed: {e}");
                     }
                 }
@@ -180,6 +205,9 @@ pub fn save(cfg: &mut Config, peer: Peer) {
 mod tests {
     use super::*;
 
+    /// Tests that use the real pairing port take turns.
+    static PORT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     fn cfg() -> Config {
         let kp = snow::Builder::new(crate::net::NOISE.parse().unwrap()).generate_keypair().unwrap();
         Config { private_key: hex::encode(kp.private), public_key: hex::encode(kp.public), ..Default::default() }
@@ -210,8 +238,9 @@ mod tests {
 
     #[test]
     fn host_gives_up_after_three_wrong_codes() {
+        let _turn = PORT.lock().unwrap_or_else(|e| e.into_inner());
         let host_cfg = cfg();
-        let t = std::thread::spawn(move || host(&host_cfg, "111111"));
+        let t = std::thread::spawn(move || host(&host_cfg, "111111", || {}));
         std::thread::sleep(Duration::from_millis(300));
         for _ in 0..3 {
             let _ = join(&cfg(), "222222", Some("127.0.0.1"));
@@ -219,6 +248,21 @@ mod tests {
         // Even the right code is refused now.
         let err = t.join().unwrap().unwrap_err();
         assert!(err.contains("too many"), "{err}");
+    }
+
+    #[test]
+    fn newer_code_replaces_older() {
+        let _turn = PORT.lock().unwrap_or_else(|e| e.into_inner());
+        let (a, b) = (cfg(), cfg());
+        let old = std::thread::spawn(move || host(&a, "111111", || {}));
+        std::thread::sleep(Duration::from_millis(300));
+        let new = std::thread::spawn(move || host(&b, "222222", || {}));
+        assert_eq!(old.join().unwrap().unwrap_err(), REPLACED);
+        std::thread::sleep(Duration::from_millis(300));
+        // A dropped connection isn't a guess, and the newest code is the one that works.
+        drop(TcpStream::connect(("127.0.0.1", PAIR_PORT)));
+        assert!(join(&cfg(), "222222", Some("127.0.0.1")).is_ok());
+        assert!(new.join().unwrap().is_ok());
     }
 
     #[test]

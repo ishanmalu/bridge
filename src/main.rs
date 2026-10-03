@@ -89,7 +89,7 @@ fn main() {
             let code = pair::new_code();
             let ip = pair::local_ip().map(|i| i.to_string()).unwrap_or_else(|| "?".into());
             println!("Pairing code: {code}   (this machine's address: {ip})\nOn the other machine run:  bridge pair {code}\nor, if it can't find this one:  bridge pair {code} {ip}\n(or use Pair → Enter a pairing code in its menu). Waiting…");
-            match pair::host(&cfg, &code) {
+            match pair::host(&cfg, &code, || {}) {
                 Ok(p) => {
                     println!("Paired with {}.", p.name);
                     pair::save(&mut cfg, p);

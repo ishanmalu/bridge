@@ -262,8 +262,7 @@ fn start_pairing(cfg: Arc<RwLock<Config>>, tx: Sender<Event>, join: Option<(Stri
             Some((code, addr)) => pair::join(&snapshot, &code, addr.as_deref()),
             None => {
                 let code = pair::new_code();
-                show_code(&code);
-                pair::host(&snapshot, &code)
+                pair::host(&snapshot, &code, || show_code(&code))
             }
         };
         match result {
@@ -273,6 +272,7 @@ fn start_pairing(cfg: Arc<RwLock<Config>>, tx: Sender<Event>, join: Option<(Stri
                 let _ = tx.send(Event::Ui(Ui::Repaired));
                 notify(&format!("Paired with {name}."));
             }
+            Err(e) if e == pair::REPLACED => {}
             Err(e) => notify(&format!("Pairing failed: {e}")),
         }
     });
