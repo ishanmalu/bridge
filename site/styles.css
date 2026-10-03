@@ -1,0 +1,61 @@
+:root {
+  --bg: #f4f1ea;
+  --ink: #1c1c1e;
+  --muted: #6b675f;
+  --line: #1c1c1e1f;
+  --accent: #ff5a36;
+  --card: #fbf9f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121110; --ink: #f1ede4; --muted: #a29d93; --line: #f1ede41f; --card: #1a1917; }
+}
+* { box-sizing: border-box; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 17px/1.6 "Bricolage Grotesque", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 72px 16px 48px; }
+.hero { text-align: center; }
+.logo { width: 96px; height: 96px; border-radius: 22px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 8px; margin: 28px 0 8px;
+  padding: 4px 12px; border: 1px solid var(--line); border-radius: 99px;
+  font-size: 14px; color: var(--muted);
+}
+.badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+h1 { font-size: clamp(56px, 11vw, 112px); font-weight: 700; letter-spacing: -.04em; line-height: 1; }
+.lede { max-width: 30ch; margin: 18px auto 0; font-size: clamp(19px, 2.6vw, 24px); color: var(--muted); }
+
+.stage {
+  position: relative; display: grid; grid-template-columns: 1fr 12% 1fr;
+  max-width: 760px; margin: 64px auto; aspect-ratio: 16 / 6;
+}
+.screen {
+  position: relative; border: 3px solid var(--ink); border-radius: 18px; background: var(--card);
+  transition: border-color .3s;
+}
+.screen span { position: absolute; left: 14px; bottom: 10px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.screen.lit { border-color: var(--accent); }
+.cursor {
+  position: absolute; left: 0; top: 0; width: 26px; height: 32px;
+  fill: var(--accent); stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round;
+  will-change: transform; pointer-events: none;
+}
+.clip {
+  position: absolute; left: 0; top: 0; padding: 4px 10px; border-radius: 8px;
+  background: var(--ink); color: var(--bg); font-size: 13px; white-space: nowrap;
+  opacity: 0; will-change: transform, opacity; pointer-events: none;
+}
+
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.features article { padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+.features h2 { font-size: 19px; font-weight: 500; margin-bottom: 6px; }
+.features p { font-size: 15px; color: var(--muted); }
+
+footer { margin-top: 64px; text-align: center; font-size: 14px; color: var(--muted); }
+footer p + p { margin-top: 6px; }
+footer a { color: var(--ink); text-decoration-color: var(--accent); text-underline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) { .badge i { animation: none; } }

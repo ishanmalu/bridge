@@ -1,0 +1,22 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
+      - run: cargo build --release
+      # Real Windows: pointer injection, clipboard text and files, network.
+      # (The Mac runner can't grant Accessibility, so it runs the unit and end-to-end tests only.)
+      - if: runner.os == 'Windows'
+        run: cargo run -- selftest

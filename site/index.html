@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bridge</title>
+  <meta name="description" content="One keyboard and mouse for your Mac and your PC, in either direction. The clipboard, files and media keys come with you.">
+  <meta property="og:title" content="Bridge">
+  <meta property="og:description" content="One keyboard and mouse for your Mac and your PC, in either direction.">
+  <meta property="og:image" content="https://bridge.ishanmalu.dev/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <img class="logo" src="/icon.svg" alt="" width="96" height="96">
+      <p class="badge"><i></i>Coming soon</p>
+      <h1>Bridge</h1>
+      <p class="lede">One keyboard and mouse for your Mac and your PC. Push the pointer off the edge and keep going.</p>
+    </header>
+
+    <section class="stage" aria-label="Animation: the pointer leaves the Mac and arrives on the PC">
+      <div class="screen mac"><span>Mac</span></div>
+      <div class="gap"></div>
+      <div class="screen pc"><span>PC</span></div>
+      <svg class="cursor" id="cursor" viewBox="0 0 24 30" aria-hidden="true"><path d="M2 2 L2 24 L8 18 L12.5 28 L17 26 L12.6 16.5 L20 16.5 Z"/></svg>
+      <div class="clip" id="clip">Copied text</div>
+    </section>
+
+    <section class="features">
+      <article><h2>Either way round</h2><p>The Mac's trackpad drives the PC, and the PC's mouse drives the Mac. Cross through the edge, or double-tap Right Option or Right Ctrl.</p></article>
+      <article><h2>The clipboard follows</h2><p>Text, images and copied files move the moment you switch. Files land in Downloads/Bridge.</p></article>
+      <article><h2>Shortcuts still work</h2><p>Cmd becomes Ctrl on the PC, so Cmd+C copies there too. Ctrl+C from the PC arrives on the Mac as Cmd+C.</p></article>
+      <article><h2>Media keys, both ways</h2><p>Play, pause, skip and volume act on whichever machine you're driving. Brightness stays put.</p></article>
+      <article><h2>Grab to take back</h2><p>Move a machine's own mouse while it's being driven and it takes control straight back.</p></article>
+      <article><h2>Wakes your PC</h2><p>Switch to a sleeping PC and Bridge sends Wake-on-LAN. Full-screen games keep the pointer.</p></article>
+      <article><h2>Just your network</h2><p>No server, no account. The two machines talk directly, encrypted, after a one-time six-digit pairing.</p></article>
+      <article><h2>Small and quick</h2><p>One Rust codebase, around 2.5 MB on each side, in the menu bar or tray and out of the way.</p></article>
+    </section>
+
+    <footer>
+      <p>macOS 13+ on Apple silicon · Windows 10 or 11 · same local network</p>
+      <p><a href="https://ishanmalu.dev/bridge">A side quest by Ishan Malu</a></p>
+    </footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

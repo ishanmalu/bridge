@@ -1,0 +1,44 @@
+[package]
+name = "bridge"
+version = "0.1.0"
+edition = "2021"
+license = "PolyForm-Noncommercial-1.0.0"
+description = "One keyboard and mouse for a Mac and a PC, in either direction."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["use-std"] }
+toml = "0.8"
+snow = "0.9"
+spake2 = "0.4"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+mdns-sd = "0.13"
+arboard = { version = "3.5", features = ["image-data"] }
+png = "0.17"
+mac_address = "1"
+log = { version = "0.4", features = ["std"] }
+tray-icon = "0.21"
+tao = "0.34"
+hostname = "0.4"
+dirs = "6"
+hex = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSString", "NSURL", "NSArray"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_System_Console",
+  "Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell", "Win32_System_Ole",
+] }
+
+[profile.release]
+lto = true
+strip = true
+
+[build-dependencies]
+winresource = "0.1"
