@@ -616,10 +616,11 @@ mod e2e {
         connected(&a, &b);
         a.wait_for("capture true");
 
-        // Double-tap Right Option on A takes control back.
+        // Double-tap the hotkey on A (Right Option on a Mac, Right Ctrl on a PC) takes control back.
+        let key = Config::default().hotkey;
         let tap = |s: &Side| {
-            s.input(Input::Key { hid: crate::keymap::RALT, down: true });
-            s.input(Input::Key { hid: crate::keymap::RALT, down: false });
+            s.input(Input::Key { hid: key, down: true });
+            s.input(Input::Key { hid: key, down: false });
         };
         tap(&a);
         tap(&a);
