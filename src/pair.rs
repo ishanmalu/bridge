@@ -148,9 +148,16 @@ pub fn join(cfg: &Config, code: &str, addr: Option<&str>) -> Res<Peer> {
 fn find_host() -> Res<Vec<SocketAddr>> {
     let d = ServiceDaemon::new().map_err(|e| e.to_string())?;
     let rx = d.browse(PAIR_SERVICE).map_err(|e| e.to_string())?;
-    let deadline = Instant::now() + Duration::from_secs(8);
+    // Skip this machine: it may be showing a code of its own.
+    let me = crate::machine_name();
+    let mine: Vec<std::net::IpAddr> = local_ip().into_iter().collect();
+    let deadline = Instant::now() + Duration::from_secs(10);
     while let Ok(ev) = rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
         if let ServiceEvent::ServiceResolved(info) = ev {
+            let own_name = info.get_fullname().split('.').next() == Some(me.as_str());
+            if own_name || info.get_addresses().iter().any(|a| mine.contains(a) || a.is_loopback()) {
+                continue;
+            }
             let mut v: Vec<SocketAddr> =
                 info.get_addresses().iter().map(|a| SocketAddr::new(*a, PAIR_PORT)).collect();
             v.sort_by_key(|a| a.is_ipv6());
