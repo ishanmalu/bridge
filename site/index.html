@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bridge</title>
   <meta name="description" content="One keyboard and mouse for your Mac and your PC, in either direction. The clipboard, files and media keys come with you.">
+  <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
   <meta property="og:title" content="Bridge">
   <meta property="og:description" content="One keyboard and mouse for your Mac and your PC, in either direction.">
   <meta property="og:image" content="https://bridge.ishanmalu.dev/og.png">
@@ -13,48 +15,173 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4 1.3-4-2-6-2.5m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
+    <symbol id="i-arrows" viewBox="0 0 24 24"><path d="M4 8h14m0 0-3-3m3 3-3 3M20 16H6m0 0 3-3m-3 3 3 3"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h3"/></symbol>
+    <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M9 6v12m6-12v12M6 9h12M6 15h12M9 6a3 3 0 1 0-3 3m12 0a3 3 0 1 0-3-3M6 15a3 3 0 1 0 3 3m6 0a3 3 0 1 0 3-3"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1V4.5a1.5 1.5 0 0 1 3 0V12m0-6.5a1.5 1.5 0 0 1 3 0V13m0-4.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.5a7 7 0 0 1-5.5-2.7l-3.3-4.2a1.6 1.6 0 0 1 2.4-2.1L8 15"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12 4 7.5"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8m-3 3 2.5 2.5M14 9l2 2"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M5 3v15l4.2-4 2.8 6.5 2.6-1.1-2.8-6.4H18z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  </svg>
+
+  <header class="top">
+    <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28"><span>Bridge</span></a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#setup">Setup</a>
+      <a href="#faq">FAQ</a>
+      <a class="gh" href="https://github.com/ishanmalu/bridge" aria-label="Source on GitHub"><svg><use href="#i-github"/></svg></a>
+    </nav>
+  </header>
+
   <main>
-    <header class="hero">
-      <img class="logo" src="/icon.svg" alt="" width="96" height="96">
-      <p class="badge"><i></i>Beta</p>
-      <h1>Bridge</h1>
-      <p class="lede">One keyboard and mouse for your Mac and your PC. Push the pointer off the edge and keep going.</p>
+    <section class="hero">
+      <div class="logo-wrap"><img class="logo" src="/icon.svg" alt="" width="104" height="104"></div>
+      <p class="badge"><i></i>Free beta · v0.1</p>
+      <h1 id="title" aria-label="Bridge">Bridge</h1>
+      <p class="lede">One keyboard and mouse for your Mac <em>and</em> your PC. Push the pointer off the edge and keep going.</p>
       <div class="get">
-        <a class="btn primary" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-mac.zip">Download for Mac</a>
-        <a class="btn" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-windows.zip">Windows</a>
+        <a class="btn primary" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-mac.zip"><svg><use href="#i-download"/></svg>Download for Mac</a>
+        <a class="btn" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-windows.zip"><svg><use href="#i-download"/></svg>Windows</a>
       </div>
-      <p class="fine">Install it on both machines · <a href="https://github.com/ishanmalu/bridge#set-up">Setup guide</a> · <a href="https://github.com/ishanmalu/bridge">Source</a></p>
-    </header>
-
-    <section class="stage" aria-label="Animation: the pointer leaves the Mac and arrives on the PC">
-      <div class="screen mac"><span>Mac</span></div>
-      <div class="gap"></div>
-      <div class="screen pc"><span>PC</span></div>
-      <svg class="cursor" id="cursor" viewBox="0 0 24 30" aria-hidden="true"><path d="M2 2 L2 24 L8 18 L12.5 28 L17 26 L12.6 16.5 L20 16.5 Z"/></svg>
-      <div class="clip" id="clip">Copied text</div>
+      <p class="fine">Install on both machines · macOS 11+ · Windows 10 &amp; 11</p>
     </section>
 
-    <section class="features">
-      <article><h2>Either way round</h2><p>The Mac's trackpad drives the PC, and the PC's mouse drives the Mac. Cross through the edge, or double-tap Right Option or Right Ctrl.</p></article>
-      <article><h2>The clipboard follows</h2><p>Text, images and copied files move the moment you switch. Files land in Downloads/Bridge.</p></article>
-      <article><h2>Shortcuts still work</h2><p>Cmd becomes Ctrl on the PC, so Cmd+C copies there too. Ctrl+C from the PC arrives on the Mac as Cmd+C.</p></article>
-      <article><h2>Media keys, both ways</h2><p>Play, pause, skip and volume act on whichever machine you're driving. Brightness stays put.</p></article>
-      <article><h2>Grab to take back</h2><p>Move a machine's own mouse while it's being driven and it takes control straight back.</p></article>
-      <article><h2>Wakes your PC</h2><p>Switch to a sleeping PC and Bridge sends Wake-on-LAN. Full-screen games keep the pointer.</p></article>
-      <article><h2>Just your network</h2><p>No server, no account. The two machines talk directly, encrypted, after a one-time six-digit pairing.</p></article>
-      <article><h2>Small and quick</h2><p>One Rust codebase, around 3 MB on each side, in the menu bar or tray and out of the way.</p></article>
+    <section class="demo" aria-label="Animation: the pointer leaves the Mac, arrives on the PC, and brings the clipboard with it">
+      <div class="desk" id="desk">
+        <div class="device laptop">
+          <div class="screen" id="mac">
+            <div class="menubar"><i></i><i></i><i></i><span class="mb-icon"></span></div>
+            <div class="win w1"><b></b><b></b><b></b></div>
+            <div class="win w2"></div>
+            <span class="edge right"></span>
+            <span class="label">Mac</span>
+          </div>
+          <div class="base"></div>
+        </div>
+        <div class="beam" id="beam" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="device monitor">
+          <div class="screen" id="pc">
+            <div class="win w3"><b></b><b></b></div>
+            <div class="win w4"></div>
+            <div class="taskbar"><i></i><i></i><i></i><i></i></div>
+            <span class="edge left"></span>
+            <span class="label">PC</span>
+          </div>
+          <div class="neck"></div>
+          <div class="foot"></div>
+        </div>
+        <svg class="cursor" id="cursor" viewBox="0 0 24 30" aria-hidden="true"><path d="M2 2 L2 24 L8 18 L12.5 28 L17 26 L12.6 16.5 L20 16.5 Z"/></svg>
+        <div class="chip clipchip" id="clip"><svg><use href="#i-clip"/></svg>“See you over there”</div>
+        <div class="chip keychip" id="keys"><kbd>⌘</kbd><kbd>C</kbd><span class="arrow">→</span><kbd>Ctrl</kbd><kbd>C</kbd></div>
+        <div class="ripple" id="ripple"></div>
+      </div>
+      <ol class="steps" id="steps">
+        <li>Push through the edge</li>
+        <li>The clipboard comes along</li>
+        <li>Your shortcuts still work</li>
+        <li>Push back, you're home</li>
+      </ol>
     </section>
 
-    <footer>
-      <p>macOS 11+ (Apple silicon or Intel) · Windows 10 or 11 · same local network</p>
-      <p>Beta builds aren't signed yet: on a Mac use System Settings → Privacy &amp; Security → Open Anyway; on Windows choose More info → Run anyway.</p>
-      <p><a href="https://ishanmalu.dev/bridge">A side quest by Ishan Malu</a></p>
-    </footer>
+    <section class="features" id="features">
+      <h2 class="section-title reveal">Everything moves with you</h2>
+      <div class="grid">
+        <article class="card reveal"><div class="ic"><svg><use href="#i-arrows"/></svg></div><h3>Either way round</h3><p>The Mac's trackpad drives the PC, and the PC's mouse drives the Mac. Push through the edge, or double-tap Right Option or Right Ctrl.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-clip"/></svg></div><h3>Clipboard and files</h3><p>Text, images and copied files arrive the moment you switch. Files land in Downloads/Bridge.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-cmd"/></svg></div><h3>Shortcuts that make sense</h3><p>Cmd becomes Ctrl on the PC, so Cmd+C copies there too. The PC's Ctrl+C arrives on the Mac as Cmd+C.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-music"/></svg></div><h3>Media keys, both ways</h3><p>Play, pause, skip and volume act on whichever machine you're driving. Brightness stays put.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-hand"/></svg></div><h3>Grab to take back</h3><p>Touch a machine's own mouse while it's being driven and it's yours again, instantly.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-moon"/></svg></div><h3>Wakes a sleeping PC</h3><p>Switch to a PC that's asleep and Bridge sends Wake-on-LAN. Full-screen games keep the pointer.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-wifi"/></svg></div><h3>Just your network</h3><p>No server, no account, no cloud. The two machines talk directly to each other.</p></article>
+        <article class="card reveal"><div class="ic"><svg><use href="#i-bolt"/></svg></div><h3>Tiny and quick</h3><p>About 3 MB, written in Rust, living quietly in the menu bar or tray.</p></article>
+      </div>
+    </section>
+
+    <section class="keymap reveal" aria-label="How modifier keys map between Mac and PC">
+      <h2 class="section-title">Your fingers already know it</h2>
+      <p class="sub">Modifiers swap so muscle memory works on both machines.</p>
+      <div class="pairs" id="pairs">
+        <div class="pair"><kbd>⌘ Cmd</kbd><span class="link"></span><kbd>Ctrl</kbd></div>
+        <div class="pair"><kbd>⌥ Option</kbd><span class="link"></span><kbd>Alt</kbd></div>
+        <div class="pair"><kbd>⌃ Control</kbd><span class="link"></span><kbd>⊞ Win</kbd></div>
+        <div class="pair"><kbd>⇧ Shift</kbd><span class="link"></span><kbd>Shift</kbd></div>
+      </div>
+    </section>
+
+    <section class="setup" id="setup">
+      <h2 class="section-title reveal">Set up in a minute</h2>
+      <div class="flow">
+        <article class="step reveal">
+          <span class="num">1</span>
+          <div class="ic"><svg><use href="#i-box"/></svg></div>
+          <h3>Install on both</h3>
+          <p>Mac: open Bridge and allow Accessibility. PC: put it in Program Files and run as administrator.</p>
+        </article>
+        <article class="step reveal">
+          <span class="num">2</span>
+          <div class="code" id="code" aria-label="Example pairing code"><b>4</b><b>8</b><b>2</b><i></i><b>9</b><b>1</b><b>6</b></div>
+          <h3>Pair with a code</h3>
+          <p>One machine shows six digits, the other types them in. That's the only setup.</p>
+        </article>
+        <article class="step reveal">
+          <span class="num">3</span>
+          <div class="ic"><svg><use href="#i-cursor"/></svg></div>
+          <h3>Cross over</h3>
+          <p>Push the pointer off the edge facing the other machine. It just keeps going.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="trust reveal">
+      <div class="lockbox"><svg class="lock"><use href="#i-lock"/></svg></div>
+      <div>
+        <h2>Private by design</h2>
+        <ul>
+          <li><svg><use href="#i-check"/></svg>End-to-end encrypted (Noise protocol), keys pinned at pairing</li>
+          <li><svg><use href="#i-check"/></svg>Six-digit pairing via SPAKE2, three tries per code</li>
+          <li><svg><use href="#i-check"/></svg>Keystrokes leave only while you're driving the other machine</li>
+          <li><svg><use href="#i-check"/></svg>Nothing touches the internet. Every line on GitHub</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <h2 class="section-title reveal">Questions</h2>
+      <details class="reveal"><summary>Why does my Mac say it can't verify Bridge?<svg><use href="#i-plus"/></svg></summary><p>The beta isn't notarised by Apple yet. Open System Settings → Privacy &amp; Security, scroll down and click Open Anyway. On Windows, SmartScreen does the same: choose More info → Run anyway.</p></details>
+      <details class="reveal"><summary>Does it work with an Intel Mac?<svg><use href="#i-plus"/></svg></summary><p>Yes. The Mac download runs on Apple silicon and Intel, macOS 11 or later.</p></details>
+      <details class="reveal"><summary>Can it type into admin windows on the PC?<svg><use href="#i-plus"/></svg></summary><p>Yes, when Bridge runs as administrator. Turn on Start at login from Program Files and it starts elevated every time without a prompt. Windows' own UAC prompts and lock screen are off-limits to every app.</p></details>
+      <details class="reveal"><summary>It won't connect. What now?<svg><use href="#i-plus"/></svg></summary><p>Both machines need to be on the same network. If they can't find each other, type the pairing code followed by the address the other machine shows. The menu's Open log shows what's happening.</p></details>
+      <details class="reveal"><summary>What does it cost?<svg><use href="#i-plus"/></svg></summary><p>Nothing. It's free for personal, non-commercial use, with the source on GitHub.</p></details>
+    </section>
+
+    <section class="cta reveal">
+      <img src="/icon.svg" alt="" width="64" height="64">
+      <h2>Two machines, one desk.</h2>
+      <div class="get">
+        <a class="btn primary" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-mac.zip"><svg><use href="#i-download"/></svg>Download for Mac</a>
+        <a class="btn" href="https://github.com/ishanmalu/bridge/releases/latest/download/Bridge-windows.zip"><svg><use href="#i-download"/></svg>Windows</a>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <p><a href="https://github.com/ishanmalu/bridge">Source</a> · <a href="https://github.com/ishanmalu/bridge/releases">Releases</a> · <a href="https://ishanmalu.dev/bridge">A side quest by Ishan Malu</a></p>
+  </footer>
   <script src="/app.js" defer></script>
 </body>
 </html>
