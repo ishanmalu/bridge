@@ -5,6 +5,7 @@ mod clipboard;
 mod config;
 mod engine;
 mod geometry;
+mod install;
 mod keymap;
 mod net;
 mod pair;
@@ -12,6 +13,7 @@ mod platform;
 mod selftest;
 mod proto;
 mod ui;
+mod updater;
 mod wol;
 
 use config::Config;
@@ -71,6 +73,8 @@ const HELP: &str = "Bridge: one keyboard and mouse for a Mac and a PC.
   bridge status                show pairing and settings
   bridge autostart on|off      start at login
   bridge selftest              check this machine: screens, pointer, clipboard, network
+  bridge update                install the latest version
+  bridge install               Mac: move to Applications · Windows: install into Program Files
 ";
 
 fn main() {
@@ -120,6 +124,26 @@ fn main() {
         }
         ["autostart", v @ ("on" | "off")] => match autostart::set(*v == "on") {
             Ok(()) => println!("Start at login: {v}"),
+            Err(e) => fail(&e),
+        },
+        ["install"] => {
+            if let Err(e) = install::install() {
+                ui::notify_cli(&format!("Couldn't install Bridge: {e}"));
+                std::process::exit(1);
+            }
+        }
+        #[cfg(windows)]
+        ["uninstall"] => {
+            let _ = install::uninstall();
+        }
+        ["update"] => match updater::check() {
+            Ok(Some(r)) => {
+                println!("Installing Bridge {}…", r.version);
+                if let Err(e) = updater::install(&r, |_| {}) {
+                    fail(&e);
+                }
+            }
+            Ok(None) => println!("Bridge {} is up to date.", env!("CARGO_PKG_VERSION")),
             Err(e) => fail(&e),
         },
         ["selftest"] => std::process::exit(selftest::run()),

@@ -77,6 +77,15 @@ brew install mingw-w64
 covering crossing, keys, mouse, scroll, media, the hotkey, touch-to-reclaim and stuck-key release.
 CI runs them on macOS and Windows, plus `bridge selftest` on a real Windows machine.
 
+## Updating
+
+Bridge checks for updates once a day and shows a banner when one is ready; click it, or choose
+*Check for updates…* in the menu, then **Install and relaunch**. Every update is verified against a
+signing key built into the app before it's installed. On the Mac, permissions carry over.
+
+Coming from 0.1.x (no updater yet)? Download the new version once by hand: on the Mac replace
+Bridge in Applications; on Windows run the new `Bridge.exe` and choose **Install**.
+
 ## Settings
 
 Edit with *Open settings file* (Mac: `~/Library/Application Support/Bridge/config.toml`,

@@ -28,11 +28,28 @@ cat > dist/Bridge.app/Contents/Info.plist <<PLIST
   <key>LSUIElement</key><true/>
 </dict></plist>
 PLIST
-# Ad-hoc signature: macOS ties the Accessibility grant to it, so re-grant after each rebuild.
-codesign --force --sign - dist/Bridge.app
+# Sign with a stable certificate so macOS keeps the Accessibility grant across updates
+# (an ad-hoc signature changes every build, and macOS would forget the permission).
+# Set BRIDGE_SIGN_ID to a code-signing identity; falls back to ad-hoc.
+SIGN_ID="${BRIDGE_SIGN_ID:-Perch Dev}"
+if security find-identity -v -p codesigning | grep -q "\"$SIGN_ID\""; then
+  codesign --force --deep --options runtime --sign "$SIGN_ID" dist/Bridge.app
+else
+  echo "warning: no '$SIGN_ID' identity; signing ad-hoc (Accessibility resets on update)"
+  codesign --force --sign - dist/Bridge.app
+fi
 cp target/x86_64-pc-windows-gnu/release/bridge.exe dist/Bridge.exe
 
 # Release archives: ditto keeps the signature and bundle intact.
-(cd dist && ditto -c -k --keepParent Bridge.app Bridge-mac.zip && zip -q Bridge-windows.zip Bridge.exe)
-(cd dist && shasum -a 256 Bridge-mac.zip Bridge-windows.zip > SHA256SUMS.txt)
-echo "Built dist/Bridge.app, dist/Bridge.exe, dist/Bridge-mac.zip, dist/Bridge-windows.zip"
+(cd dist && ditto -c -k --keepParent Bridge.app Bridge-mac.zip && zip -q Bridge-windows.zip Bridge.exe && cp Bridge.exe Bridge-windows.exe)
+(cd dist && shasum -a 256 Bridge-mac.zip Bridge-windows.zip Bridge-windows.exe > SHA256SUMS.txt)
+
+# Sign the checksum list; the app refuses updates that don't verify against the built-in key.
+KEY="$HOME/.config/bridge-release/ed25519.pem"
+OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
+if [ -f "$KEY" ]; then
+  "$OPENSSL" pkeyutl -sign -rawin -inkey "$KEY" -in dist/SHA256SUMS.txt -out dist/SHA256SUMS.txt.sig
+else
+  echo "warning: no release key at $KEY; this build can't be published as an update"
+fi
+echo "Built dist/: Bridge.app, Bridge.exe, Bridge-mac.zip, Bridge-windows.zip, Bridge-windows.exe, SHA256SUMS.txt(.sig)"

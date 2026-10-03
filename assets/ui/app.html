@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #f4f1ea; --ink: #1c1c1e; --muted: #6b675f; --line: #1c1c1e1a; --card: #fbf9f4;
+  --accent: #ff5a36; --accent-soft: #ff5a361f; --ok: #22a06b; --field: #fff;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161513; --ink: #f1ede4; --muted: #a29d93; --line: #f1ede41c; --card: #1f1e1b; --field: #262521; --accent-soft: #ff5a3629; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); overflow: hidden auto;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none; cursor: default;
+}
+svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+button { font: inherit; color: inherit; cursor: pointer; }
+input, select { font: inherit; color: var(--ink); }
+.page { display: none; min-height: 100%; padding: 46px 28px 28px; animation: in .35s cubic-bezier(.2,.8,.2,1); }
+body.win .page { padding-top: 28px; }
+.page.on { display: block; }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } }
+.drag { position: fixed; inset: 0 0 auto 0; height: 34px; }
+.head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.head img { width: 52px; height: 52px; border-radius: 13px; box-shadow: 0 8px 20px -10px #0006; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+h2 { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+.sub { color: var(--muted); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 18px;
+  border-radius: 10px; border: 1.5px solid var(--ink); background: transparent; font-weight: 600;
+  transition: transform .15s, box-shadow .15s, opacity .2s;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 3px 0 var(--ink); }
+.btn:active { transform: translateY(1px); box-shadow: none; }
+.btn.primary { background: var(--ink); color: var(--bg); }
+.btn.danger { border-color: #d6453a; color: #d6453a; }
+.btn.danger:hover { box-shadow: 0 3px 0 #d6453a; }
+.btn:disabled { opacity: .4; pointer-events: none; }
+.btn svg { width: 16px; height: 16px; }
+.link { border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.grow { flex: 1; }
+.card { padding: 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.status { min-height: 22px; margin-top: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+.status.err { color: #d6453a; }
+.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+/* Segmented control */
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 11px; background: var(--line); margin-bottom: 22px; }
+.seg button { border: 0; background: none; padding: 7px; border-radius: 8px; font-weight: 600; color: var(--muted); transition: all .2s; }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px #0002; }
+
+/* Pairing digits */
+.digits { display: flex; justify-content: center; gap: 8px; margin: 8px 0 6px; }
+.digits .sep { width: 10px; align-self: center; height: 2px; background: var(--muted); }
+.digit {
+  width: 46px; height: 60px; display: grid; place-items: center; border-radius: 12px;
+  border: 1.5px solid var(--ink); background: var(--field); box-shadow: 0 3px 0 var(--ink);
+  font: 600 28px/1 ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+.show .digit { opacity: 0; transform: translateY(10px); animation: pop .45s cubic-bezier(.3,1.5,.5,1) forwards; }
+@keyframes pop { to { opacity: 1; transform: none; } }
+input.digit { text-align: center; outline: none; caret-color: var(--accent); }
+input.digit:focus { border-color: var(--accent); box-shadow: 0 3px 0 var(--accent); }
+.where { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
+.where b { color: var(--ink); font-family: ui-monospace, "SF Mono", Consolas, monospace; font-weight: 500; }
+.waiting { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 18px; color: var(--muted); }
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.field { width: 100%; height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--field); outline: none; }
+.field:focus { border-color: var(--accent); }
+.done { text-align: center; padding: 30px 0 10px; }
+.tick { width: 72px; height: 72px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center; background: var(--ok); color: #fff; animation: pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+.tick svg { width: 38px; height: 38px; stroke-width: 3; stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .5s .25s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Settings */
+.list { border-radius: 14px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+.item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 52px; }
+.item + .item { border-top: 1px solid var(--line); }
+.item .t { flex: 1; }
+.item .t small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.toggle { position: relative; width: 40px; height: 24px; flex: none; border-radius: 99px; background: var(--line); border: 0; transition: background .2s; }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0004; transition: transform .25s cubic-bezier(.3,1.4,.5,1); }
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(16px); }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 150px; height: 4px; border-radius: 4px; background: var(--line); outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--card); border: 2px solid var(--accent); box-shadow: 0 1px 3px #0003; }
+.val { width: 54px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+select.field { width: auto; height: 32px; padding: 0 8px; }
+.layout { display: grid; place-items: center; padding: 16px; }
+.layout .pad { position: relative; width: 250px; height: 150px; }
+.layout .me { position: absolute; inset: 34px 62px; border-radius: 10px; border: 2px solid var(--ink); display: grid; place-items: center; font-weight: 600; font-size: 13px; background: var(--field); }
+.layout .side { position: absolute; border: 2px dashed var(--line); border-radius: 8px; background: none; color: var(--muted); font-size: 12px; transition: all .2s; }
+.layout .side:hover { border-color: var(--accent); color: var(--accent); }
+.layout .side.on { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.side.left { left: 0; top: 34px; bottom: 34px; width: 54px; }
+.side.right { right: 0; top: 34px; bottom: 34px; width: 54px; }
+.side.top { top: 0; left: 62px; right: 62px; height: 28px; }
+.side.bottom { bottom: 0; left: 62px; right: 62px; height: 28px; }
+.peer { display: flex; align-items: center; gap: 12px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.dot.on { background: var(--ok); box-shadow: 0 0 0 4px #22a06b33; }
+
+/* Welcome */
+.steps { display: grid; gap: 10px; }
+.step { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); transition: border-color .3s; }
+.step .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--line); transition: all .3s; }
+.step.ok .n { background: var(--ok); color: #fff; }
+.step.ok { border-color: #22a06b55; }
+.step .t { flex: 1; }
+.step .t small { display: block; color: var(--muted); font-size: 12px; }
+.step.ok .btn { display: none; }
+
+/* About */
+.center { text-align: center; }
+.big-icon { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 12px 28px -12px #0007; animation: float 5s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-5px); } }
+.bar { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 14px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.notes { margin-top: 12px; max-height: 120px; overflow: auto; text-align: left; font-size: 12.5px; color: var(--muted); white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+
+/* Banner */
+body.banner { background: transparent; overflow: hidden; }
+.toast {
+  position: absolute; inset: 8px; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border-radius: 16px; background: color-mix(in srgb, var(--card) 94%, transparent); border: 1px solid var(--line);
+  box-shadow: 0 10px 30px -10px #0006; animation: slide .45s cubic-bezier(.2,.9,.25,1.2);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+}
+.toast.out { animation: away .3s ease-in forwards; }
+@keyframes slide { from { opacity: 0; transform: translateX(40px); } }
+@keyframes away { to { opacity: 0; transform: translateX(40px); } }
+.toast img { width: 38px; height: 38px; border-radius: 9px; flex: none; }
+.toast b { display: block; font-size: 13.5px; }
+.toast span { display: block; font-size: 12.5px; color: var(--muted); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.toast .x { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--muted); opacity: 0; transition: opacity .2s; font-size: 15px; }
+.toast:hover .x { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="drag" data-drag></div>
+
+<!-- Welcome -->
+<section class="page" id="welcome">
+  <div class="head"><img data-icon alt=""><div><h1>Welcome to Bridge</h1><p class="sub">Three quick steps and you're set.</p></div></div>
+  <div class="steps">
+    <div class="step" id="st-install"><span class="n">1</span><div class="t"><b data-os="mac">Move to Applications</b><b data-os="win">Install Bridge</b>
+      <small data-os="mac">So it can start at login and keep its permissions.</small><small data-os="win">Into Program Files, with a Start menu entry. Windows will ask for permission.</small></div>
+      <button class="btn" data-cmd="install"><span data-os="mac">Move</span><span data-os="win">Install</span></button></div>
+    <div class="step" id="st-perm" data-os="mac"><span class="n">2</span><div class="t"><b>Allow Accessibility</b><small>Lets Bridge read and send keyboard and mouse input. Switch Bridge on in the list.</small></div>
+      <button class="btn" data-cmd="openAccessibility">Open Settings</button></div>
+    <div class="step" id="st-pair"><span class="n" data-num></span><div class="t"><b>Pair with your other machine</b><small>One shows a code, the other types it in.</small></div>
+      <button class="btn primary" data-open="pair">Pair</button></div>
+  </div>
+  <div class="row" style="margin-top:22px"><span class="grow"></span><button class="btn" data-cmd="close" id="welcome-done">Later</button></div>
+</section>
+
+<!-- Pair -->
+<section class="page" id="pair">
+  <div class="head"><img data-icon alt=""><div><h1>Pair your machines</h1><p class="sub">Do this once. They'll find each other after that.</p></div></div>
+  <div class="seg"><button data-tab="show" class="on">Show a code</button><button data-tab="enter">Enter a code</button></div>
+  <div id="tab-show">
+    <div class="digits show" id="code-show"></div>
+    <p class="where">On the other machine choose <b>Pair → Enter a code</b>.<br>This machine: <b id="me-name">…</b> at <b id="me-ip">…</b></p>
+    <div class="waiting" id="waiting"><span class="spin"></span>Waiting for the other machine…</div>
+  </div>
+  <div id="tab-enter" hidden>
+    <div class="digits" id="code-enter"></div>
+    <p class="where" id="addr-hint"><button class="link" id="addr-toggle">Can't find it? Enter its address</button></p>
+    <div id="addr-row" hidden style="margin:12px auto 0;max-width:300px"><input class="field" id="addr" placeholder="e.g. 192.168.1.20" spellcheck="false" inputmode="decimal"></div>
+    <div class="row" style="justify-content:center;margin-top:18px"><button class="btn primary" id="join" disabled>Pair</button></div>
+  </div>
+  <div id="pair-done" class="done" hidden><div class="tick"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div><h1 id="done-title">Paired</h1><p class="sub" style="margin-top:6px">Push the pointer off the edge to cross over.</p>
+    <div class="row" style="justify-content:center;margin-top:22px"><button class="btn primary" data-cmd="close">Done</button></div></div>
+  <p class="status" id="pair-status"></p>
+</section>
+
+<!-- Settings -->
+<section class="page" id="settings">
+  <div class="head"><img data-icon alt=""><div><h1>Settings</h1><p class="sub" id="ver"></p></div></div>
+  <div class="list"><div class="item peer"><span class="dot" id="peer-dot"></span><div class="t"><b id="peer-name">Not paired</b><small id="peer-sub"></small></div>
+    <button class="btn" data-open="pair" id="pair-btn">Pair…</button><button class="btn danger" id="unpair" hidden>Unpair</button></div></div>
+
+  <h2>Where is the other machine?</h2>
+  <div class="list layout"><div class="pad">
+    <button class="side top" data-side="top">Above</button><button class="side bottom" data-side="bottom">Below</button>
+    <button class="side left" data-side="left">Left</button><button class="side right" data-side="right">Right</button>
+    <div class="me" id="me-label">This Mac</div></div></div>
+
+  <h2>Feel</h2>
+  <div class="list">
+    <div class="item"><div class="t">Push to cross<small>How far you push into the edge before crossing.</small></div><input type="range" min="0" max="150" step="5" data-key="edge_resistance"><span class="val" data-fmt="px"></span></div>
+    <div class="item"><div class="t">Pointer speed here<small>When the other machine drives this one.</small></div><input type="range" min="0.5" max="3" step="0.1" data-key="incoming_pointer_scale"><span class="val" data-fmt="x"></span></div>
+    <div class="item"><div class="t">Scroll speed here</div><input type="range" min="0.25" max="4" step="0.05" data-key="incoming_scroll_scale"><span class="val" data-fmt="x"></span></div>
+    <div class="item"><div class="t">Reverse scrolling from the other machine</div><button class="toggle" data-key="invert_incoming_scroll"></button></div>
+  </div>
+
+  <h2>Keyboard</h2>
+  <div class="list">
+    <div class="item"><div class="t">Switch shortcut<small>Double-tap this key to switch without the mouse.</small></div>
+      <select class="field" data-key="hotkey" data-num>
+        <option value="230">Right Option / Alt</option><option value="228">Right Control</option><option value="231">Right ⌘ / Win</option><option value="229">Right Shift</option><option value="57">Caps Lock</option>
+      </select></div>
+    <div class="item"><div class="t">Swap Cmd and Ctrl<small>So ⌘C copies on the PC and Ctrl+C on the Mac.</small></div><button class="toggle" data-key="swap_cmd_ctrl"></button></div>
+  </div>
+
+  <h2>Clipboard</h2>
+  <div class="list">
+    <div class="item"><div class="t">Share the clipboard<small>Text, images and copied files move when you switch.</small></div><button class="toggle" data-key="share_clipboard"></button></div>
+    <div class="item"><div class="t">Largest files to bring</div>
+      <select class="field" data-key="max_clipboard_files_mb" data-num><option value="25">25 MB</option><option value="100">100 MB</option><option value="200">200 MB</option><option value="500">500 MB</option></select></div>
+  </div>
+
+  <h2>General</h2>
+  <div class="list">
+    <div class="item"><div class="t">Start at login</div><button class="toggle" data-special="autostart"></button></div>
+    <div class="item"><div class="t">Pause crossing<small>The shortcut still works.</small></div><button class="toggle" data-key="paused"></button></div>
+    <div class="item" data-os="win"><div class="t">Keep the pointer in full-screen apps<small>Games and films don't lose it to the Mac.</small></div><button class="toggle" data-key="block_in_fullscreen"></button></div>
+    <div class="item"><div class="t">Check for updates automatically</div><button class="toggle" data-key="check_updates"></button></div>
+  </div>
+  <div class="row" style="margin-top:18px"><button class="btn" data-open="about">About &amp; updates</button><span class="grow"></span><button class="btn" data-cmd="openLog">Open log</button>
+    <button class="btn danger" data-cmd="uninstall" data-os="win">Uninstall</button></div>
+</section>
+
+<!-- About -->
+<section class="page" id="about">
+  <div class="center" style="padding-top:10px"><img data-icon class="big-icon" alt="">
+    <h1 style="margin-top:16px">Bridge</h1><p class="sub" id="about-ver"></p>
+    <div class="card" style="margin-top:22px" id="upd">
+      <div class="row" style="justify-content:center"><span class="spin" id="upd-spin" hidden></span><b id="upd-title">Check for updates</b></div>
+      <div class="notes" id="upd-notes" hidden></div>
+      <div class="bar" id="upd-bar" hidden><i id="upd-fill"></i></div>
+      <div class="row" style="justify-content:center;margin-top:14px"><button class="btn" id="upd-check">Check now</button><button class="btn primary" id="upd-install" hidden>Install and relaunch</button></div>
+    </div>
+    <p class="sub" style="margin-top:18px;font-size:12.5px">One keyboard and mouse for a Mac and a PC.<br>Free for personal use · by Ishan Malu</p>
+    <div class="row" style="justify-content:center;margin-top:12px"><button class="link" data-url="https://bridge.ishanmalu.dev">Website</button><button class="link" data-url="https://github.com/ishanmalu/bridge">Source</button></div>
+  </div>
+</section>
+
+<!-- Banner -->
+<section class="page" id="banner" style="padding:0">
+  <div class="toast" id="toast"><img data-icon alt=""><div class="grow"><b id="t-title"></b><span id="t-body"></span></div><button class="x" data-cmd="close" aria-label="Dismiss">✕</button></div>
+</section>
+
+<script>
+(() => {
+  // Inside Bridge, window.BRIDGE is set by the app. Opened in a browser, it previews: ?page=pair&os=win
+  const q = new URLSearchParams(location.search);
+  const B = window.BRIDGE || { page: q.get('page') || 'settings', os: q.get('os') || 'mac', icon: '../icon-256.png', preview: true };
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const send = (m) => window.ipc && window.ipc.postMessage(JSON.stringify(m));
+  document.body.classList.add(B.os);
+  if (B.page === 'banner') document.body.classList.add('banner');
+  $$('[data-os]').forEach((el) => { if (el.dataset.os !== B.os) el.remove(); });
+  $$('[data-icon]').forEach((i) => (i.src = B.icon));
+  $('#' + B.page).classList.add('on');
+  $$('[data-cmd]').forEach((b) => b.addEventListener('click', () => send({ cmd: b.dataset.cmd })));
+  $$('[data-open]').forEach((b) => b.addEventListener('click', () => send({ cmd: 'open', page: b.dataset.open })));
+  $$('[data-url]').forEach((b) => b.addEventListener('click', () => send({ cmd: 'url', url: b.dataset.url })));
+  $$('[data-drag]').forEach((d) => d.addEventListener('mousedown', () => send({ cmd: 'drag' })));
+  if (B.os === 'win') $$('[data-drag]').forEach((d) => d.remove());
+
+  const handlers = {};
+  window.bridge = { recv: (m) => handlers[m.type] && handlers[m.type](m) };
+
+  /* Welcome */
+  handlers.welcome = (m) => {
+    $('#st-install').classList.toggle('ok', m.installed);
+    if ($('#st-perm')) $('#st-perm').classList.toggle('ok', m.trusted);
+    $('#st-pair').classList.toggle('ok', m.paired);
+    $('[data-num]', $('#st-pair')).textContent = B.os === 'mac' ? '3' : '2';
+    const all = m.installed && (B.os !== 'mac' || m.trusted) && m.paired;
+    $('#welcome-done').textContent = all ? 'Done' : 'Later';
+    $('#welcome-done').classList.toggle('primary', all);
+  };
+
+  /* Pair */
+  let tab = 'show';
+  const status = (t, err) => { const s = $('#pair-status'); s.textContent = t || ''; s.classList.toggle('err', !!err); };
+  const setTab = (t) => {
+    tab = t;
+    $$('.seg button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+    $('#tab-show').hidden = t !== 'show'; $('#tab-enter').hidden = t !== 'enter';
+    status('');
+    send({ cmd: t === 'show' ? 'host' : 'cancelHost' });
+    if (t === 'enter') setTimeout(() => $('#code-enter input').focus(), 50);
+  };
+  $$('.seg button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  const enter = $('#code-enter');
+  for (let i = 0; i < 6; i++) {
+    if (i === 3) enter.insertAdjacentHTML('beforeend', '<span class="sep"></span>');
+    const inp = document.createElement('input');
+    inp.className = 'digit'; inp.maxLength = 1; inp.inputMode = 'numeric'; inp.autocomplete = 'off';
+    enter.appendChild(inp);
+  }
+  const boxes = $$('input', enter);
+  const code = () => boxes.map((b) => b.value).join('');
+  const refresh = () => ($('#join').disabled = !/^\d{6}$/.test(code()));
+  boxes.forEach((b, i) => {
+    b.addEventListener('input', () => {
+      const d = b.value.replace(/\D/g, '');
+      if (d.length > 1) { // pasted
+        d.slice(0, 6 - i).split('').forEach((c, k) => (boxes[i + k].value = c));
+        boxes[Math.min(5, i + d.length - 1)].focus();
+      } else { b.value = d; if (d && i < 5) boxes[i + 1].focus(); }
+      refresh(); status('');
+      if (/^\d{6}$/.test(code()) && document.activeElement === boxes[5]) $('#join').focus();
+    });
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !b.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; refresh(); }
+      if (e.key === 'Enter' && !$('#join').disabled) $('#join').click();
+    });
+    b.addEventListener('paste', (e) => {
+      const d = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+      if (d) { e.preventDefault(); d.split('').forEach((c, k) => boxes[k] && (boxes[k].value = c)); boxes[Math.min(5, d.length)].focus(); refresh(); }
+    });
+  });
+  $('#addr-toggle').addEventListener('click', () => { $('#addr-row').hidden = false; $('#addr-hint').hidden = true; $('#addr').focus(); });
+  $('#addr').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !$('#join').disabled) $('#join').click(); });
+  $('#join').addEventListener('click', () => {
+    $('#join').disabled = true; status('Pairing…');
+    send({ cmd: 'join', code: code(), addr: $('#addr').value.trim() || null });
+  });
+  handlers.me = (m) => { $('#me-name').textContent = m.name; $('#me-ip').textContent = m.ip || 'unknown'; };
+  handlers.code = (m) => {
+    const box = $('#code-show'); box.innerHTML = '';
+    m.code.split('').forEach((c, i) => {
+      if (i === 3) box.insertAdjacentHTML('beforeend', '<span class="sep"></span>');
+      const d = document.createElement('div'); d.className = 'digit'; d.textContent = c;
+      d.style.animationDelay = i * 70 + 'ms'; box.appendChild(d);
+    });
+    $('#me-ip').textContent = m.ip || 'unknown';
+    $('#waiting').hidden = false;
+  };
+  handlers.paired = (m) => {
+    $('.seg').hidden = true; $('#tab-show').hidden = true; $('#tab-enter').hidden = true; status('');
+    $('#done-title').textContent = 'Paired with ' + m.name; $('#pair-done').hidden = false;
+  };
+  handlers.pairError = (m) => {
+    status(m.msg, true);
+    if (tab === 'enter') { enter.classList.remove('shake'); void enter.offsetWidth; enter.classList.add('shake'); refresh(); boxes.forEach((b) => (b.value = '')); boxes[0].focus(); refresh(); }
+    else $('#waiting').hidden = true;
+  };
+  if (B.page === 'pair') setTimeout(() => setTab(B.tab || 'show'), 0);
+
+  /* Settings */
+  let cfg = {};
+  const fmt = (el, v) => {
+    const out = el.nextElementSibling; if (!out || !out.classList.contains('val')) return;
+    out.textContent = out.dataset.fmt === 'px' ? `${Math.round(v)} px` : `${(+v).toFixed(2).replace(/0$/, '')}×`;
+  };
+  const set = (key, value) => { cfg[key] = value; send({ cmd: 'set', key, value }); };
+  $$('#settings [data-key]').forEach((el) => {
+    const key = el.dataset.key;
+    if (el.classList.contains('toggle')) el.addEventListener('click', () => { const v = !el.classList.contains('on'); el.classList.toggle('on', v); set(key, v); });
+    else if (el.type === 'range') { el.addEventListener('input', () => fmt(el, el.value)); el.addEventListener('change', () => set(key, +el.value)); }
+    else if (el.tagName === 'SELECT') el.addEventListener('change', () => set(key, el.dataset.num !== undefined ? +el.value : el.value));
+  });
+  $('[data-special=autostart]').addEventListener('click', (e) => { const v = !e.target.classList.contains('on'); send({ cmd: 'autostart', value: v }); });
+  $$('[data-side]').forEach((b) => b.addEventListener('click', () => { $$('[data-side]').forEach((x) => x.classList.toggle('on', x === b)); set('peer_side', b.dataset.side); }));
+  $('#unpair').addEventListener('click', () => { if (confirm('Unpair? You can pair again any time.')) send({ cmd: 'unpair' }); });
+  handlers.settings = (m) => {
+    cfg = m.cfg;
+    $('#ver').textContent = 'Version ' + m.version;
+    $('#me-label').textContent = B.os === 'mac' ? 'This Mac' : 'This PC';
+    $$('#settings [data-key]').forEach((el) => {
+      const v = cfg[el.dataset.key];
+      if (el.classList.contains('toggle')) el.classList.toggle('on', !!v);
+      else if (el.type === 'range') { el.value = v; fmt(el, v); }
+      else if (el.tagName === 'SELECT') {
+        if (![...el.options].some((o) => o.value == v)) el.insertAdjacentHTML('beforeend', `<option value="${v}">Key ${v}</option>`);
+        el.value = String(v);
+      }
+    });
+    $$('[data-side]').forEach((x) => x.classList.toggle('on', x.dataset.side === cfg.peer_side));
+    $('[data-special=autostart]').classList.toggle('on', m.autostart);
+    $('#peer-name').textContent = m.peer ? m.peer.name : 'Not paired';
+    $('#peer-sub').textContent = m.peer ? (m.connected ? 'Connected' : 'Not connected right now') : 'Pair to start sharing your keyboard and mouse.';
+    $('#peer-dot').classList.toggle('on', !!m.connected);
+    $('#unpair').hidden = !m.peer; $('#pair-btn').textContent = m.peer ? 'Pair again…' : 'Pair…';
+  };
+
+  /* About */
+  handlers.about = (m) => { $('#about-ver').textContent = 'Version ' + m.version; };
+  const upd = (title, busy) => { $('#upd-title').textContent = title; $('#upd-spin').hidden = !busy; };
+  $('#upd-check').addEventListener('click', () => { upd('Checking…', true); send({ cmd: 'check' }); });
+  $('#upd-install').addEventListener('click', () => {
+    $('#upd-install').disabled = true; $('#upd-check').hidden = true; $('#upd-bar').hidden = false;
+    upd('Downloading…', true); send({ cmd: 'installUpdate' });
+  });
+  handlers.update = (m) => {
+    if (m.error) { upd(m.error, false); $('#upd-install').disabled = false; $('#upd-check').hidden = false; $('#upd-bar').hidden = true; return; }
+    if (!m.available) { upd("You're up to date", false); return; }
+    upd(`Version ${m.version} is available`, false);
+    $('#upd-notes').hidden = !m.notes; $('#upd-notes').textContent = m.notes;
+    $('#upd-install').hidden = false; $('#upd-check').hidden = true;
+  };
+  handlers.progress = (m) => { $('#upd-fill').style.width = Math.round(m.p * 100) + '%'; if (m.p >= 1) upd('Installing…', true); };
+  if (B.page === 'about' && B.autoCheck) setTimeout(() => $('#upd-check').click(), 200);
+
+  /* Banner */
+  handlers.banner = (m) => {
+    $('#t-title').textContent = m.title; $('#t-body').textContent = m.body;
+    const t = $('#toast'); t.classList.remove('out'); void t.offsetWidth;
+  };
+  handlers.bannerOut = () => $('#toast').classList.add('out');
+  $('#toast').addEventListener('click', (e) => { if (!e.target.closest('.x')) send({ cmd: 'bannerClick' }); });
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') send({ cmd: 'close' }); });
+  document.addEventListener('contextmenu', (e) => { if (!e.target.closest('input')) e.preventDefault(); });
+  send({ cmd: 'ready' });
+})();
+</script>
+</body>
+</html>

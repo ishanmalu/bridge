@@ -16,6 +16,11 @@ pub fn enabled() -> bool {
 
 pub fn set(on: bool) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    set_for(&exe, on)
+}
+
+pub fn set_for(exe: &std::path::Path, on: bool) -> Result<(), String> {
+    let exe = exe.to_path_buf();
     #[cfg(target_os = "macos")]
     {
         let p = plist();

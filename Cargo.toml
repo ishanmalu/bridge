@@ -1,6 +1,6 @@
 [package]
 name = "bridge"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "PolyForm-Noncommercial-1.0.0"
 description = "One keyboard and mouse for a Mac and a PC, in either direction."
@@ -23,6 +23,12 @@ tao = "0.34"
 hostname = "0.4"
 dirs = "6"
 hex = "0.4"
+wry = { version = "0.53", features = ["transparent"] }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+ed25519-dalek = "2"
+sha2 = "0.10"
+serde_json = "1"
+base64 = "0.22"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

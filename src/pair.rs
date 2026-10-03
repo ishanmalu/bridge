@@ -75,6 +75,11 @@ pub fn local_ip() -> Option<std::net::IpAddr> {
 /// ever live and the code on screen is always the one being listened for.
 static SESSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// End whatever pairing session is waiting.
+pub fn cancel() {
+    SESSION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
 pub const REPLACED: &str = "replaced by a newer pairing code";
 
 /// Wait (up to 5 minutes) for the other machine to join with `code`.
@@ -135,20 +140,6 @@ pub fn host(cfg: &Config, code: &str, show: impl FnOnce()) -> Res<Peer> {
         let _ = d.shutdown();
     }
     result
-}
-
-/// Split what someone typed ("123 456", "123456 192.168.1.20") into code and optional address.
-pub fn parse_entry(text: &str) -> Option<(String, Option<String>)> {
-    let mut code = String::new();
-    let mut addr = None;
-    for tok in text.split_whitespace() {
-        if tok.chars().all(|c| c.is_ascii_digit()) && code.len() + tok.len() <= 6 {
-            code.push_str(tok);
-        } else if addr.is_none() {
-            addr = Some(tok.to_string());
-        }
-    }
-    (code.len() == 6).then_some((code, addr))
 }
 
 /// Join a machine that is showing `code`. `addr` may be omitted to find it on the network.
@@ -226,14 +217,6 @@ mod tests {
         let j = exchange(&mut s, join_code, &b, false);
         drop(s);
         (t.join().unwrap(), j)
-    }
-
-    #[test]
-    fn parses_entries() {
-        assert_eq!(parse_entry("123 456"), Some(("123456".into(), None)));
-        assert_eq!(parse_entry(" 123456  10.0.0.5 "), Some(("123456".into(), Some("10.0.0.5".into()))));
-        assert_eq!(parse_entry("12345"), None);
-        assert_eq!(parse_entry("1234567"), None);
     }
 
     #[test]

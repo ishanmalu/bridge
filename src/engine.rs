@@ -30,6 +30,8 @@ pub enum Ui {
     Wake,
     Repaired,
     Quit,
+    /// Settings changed elsewhere; re-report status.
+    Refresh,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -160,6 +162,7 @@ impl Engine {
                 self.last_wake = None;
                 self.wake();
             }
+            Ui::Refresh => self.report(),
             Ui::Quit => {
                 if self.mode == Mode::Controlling {
                     self.net.send(&Msg::Leave { frac: None });

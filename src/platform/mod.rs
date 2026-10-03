@@ -72,6 +72,20 @@ pub fn install_panic_guard(plat: Arc<dyn Platform>) {
     }));
 }
 
+/// Whether macOS has granted Accessibility (always true elsewhere).
+pub fn accessibility_trusted() -> bool {
+    #[cfg(target_os = "macos")]
+    return macos::trusted();
+    #[allow(unreachable_code)]
+    true
+}
+
+/// Bring this app's windows to the front (a menu bar app isn't active by default on macOS).
+pub fn activate_app() {
+    #[cfg(target_os = "macos")]
+    macos::activate();
+}
+
 pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
     #[cfg(target_os = "macos")]
     return macos::start(events);

@@ -57,6 +57,7 @@ extern "C" {
     static kCFTypeDictionaryValueCallBacks: u8;
     static kAXTrustedCheckOptionPrompt: Ref;
     fn AXIsProcessTrustedWithOptions(opts: Ref) -> bool;
+    fn AXIsProcessTrusted() -> bool;
 
     fn CGEventCreate(src: Ref) -> Ref;
     fn CGEventGetLocation(e: Ref) -> CGPoint;
@@ -331,6 +332,23 @@ struct Mac {
 
 unsafe impl Send for Mac {}
 unsafe impl Sync for Mac {}
+
+pub fn trusted() -> bool {
+    unsafe { AXIsProcessTrusted() }
+}
+
+pub fn activate() {
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, AnyObject};
+    unsafe {
+        if let Some(cls) = AnyClass::get(c"NSApplication") {
+            let app: *mut AnyObject = msg_send![cls, sharedApplication];
+            if !app.is_null() {
+                let _: () = msg_send![app, activateIgnoringOtherApps: true];
+            }
+        }
+    }
+}
 
 fn ask_for_accessibility() -> bool {
     unsafe {

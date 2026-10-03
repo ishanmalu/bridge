@@ -53,6 +53,8 @@ pub struct Config {
     pub port: u16,
     /// Find the other machine with mDNS (otherwise only its saved address is tried).
     pub discovery: bool,
+    /// Look for a new version once a day.
+    pub check_updates: bool,
     /// In-memory only (tests): never written to or reloaded from disk.
     #[serde(skip)]
     pub ephemeral: bool,
@@ -78,6 +80,7 @@ impl Default for Config {
             block_in_fullscreen: true,
             port: crate::proto::PORT,
             discovery: true,
+            check_updates: true,
             ephemeral: false,
         }
     }
