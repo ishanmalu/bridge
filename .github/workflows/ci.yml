@@ -34,6 +34,16 @@ jobs:
           $dlls = & $dumpbin.FullName /dependents target\release\bridge.exe | Select-String '\.dll' | ForEach-Object { $_.ToString().Trim() }
           $dlls
           if ($dlls -match 'WebView2Loader|vcruntime|msvcp') { throw "bridge.exe depends on a DLL Windows doesn't ship" }
+      - name: File details and manifest are embedded
+        shell: pwsh
+        run: |
+          $v = (Get-Item target\release\bridge.exe).VersionInfo
+          $v | Format-List CompanyName, ProductName, FileDescription, FileVersion, LegalCopyright
+          if ($v.CompanyName -ne 'Ishan Malu' -or $v.ProductName -ne 'Bridge' -or -not $v.FileVersion) { throw "file details missing" }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $mt = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter mt.exe | Where-Object FullName -like '*x64*' | Select-Object -First 1
+          & $mt.FullName -nologo -inputresource:"target\release\bridge.exe;#1" -out:manifest.xml
+          if (-not (Select-String -Path manifest.xml -Pattern 'asInvoker' -Quiet)) { throw "manifest missing" }
       - name: Self-test the release exe
         shell: pwsh
         run: |

@@ -16,6 +16,9 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+/// Set once the engine has handed back the pointer and released held keys after a Quit.
+pub static RELEASED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub enum Event {
     Input(Input),
     Net(Msg),
@@ -168,7 +171,7 @@ impl Engine {
                     self.net.send(&Msg::Leave { frac: None });
                 }
                 self.go_local();
-                std::process::exit(0);
+                RELEASED.store(true, std::sync::atomic::Ordering::SeqCst);
             }
             Ui::Repaired => {
                 self.peer_os = self.cfg.read().unwrap().peer.as_ref().map(|p| p.os);
@@ -611,6 +614,20 @@ mod e2e {
         a.input(Input::Key { hid: 0x04, down: true });
         std::thread::sleep(Duration::from_millis(300));
         assert_eq!(b.fake.log.lock().unwrap().len(), before, "input leaked to the other machine");
+    }
+
+    #[test]
+    fn quit_hands_everything_back() {
+        let (a, b) = pair_up();
+        connected(&a, &b);
+        a.wait_for("capture true");
+        a.input(Input::Key { hid: 0xE1, down: true });
+        b.wait_for("key 0xe1 true");
+        a.tx.send(Event::Ui(Ui::Quit)).unwrap();
+        // The quitting side frees its pointer; the other side releases the held key.
+        a.wait_for("capture false");
+        b.wait_for("key 0xe1 false");
+        assert!(RELEASED.load(std::sync::atomic::Ordering::SeqCst));
     }
 
     #[test]

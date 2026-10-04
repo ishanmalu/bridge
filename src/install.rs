@@ -159,6 +159,9 @@ mod win {
     }
 
     pub fn relaunch_windows(exe: &std::path::Path) -> Result<(), String> {
+        // Any other running copy (e.g. the tray app when updating from a terminal) would hold
+        // the port and the new version would bow out; stop it.
+        let _ = cmd("taskkill").args(["/F", "/IM", "Bridge.exe", "/FI", &format!("PID ne {}", std::process::id())]).status();
         // `start` detaches it from us, so it outlives this process.
         cmd("cmd")
             .args(["/C", "timeout /T 1 /NOBREAK >NUL & start \"\""])

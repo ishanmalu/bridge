@@ -1,6 +1,6 @@
 [package]
 name = "bridge"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 license = "PolyForm-Noncommercial-1.0.0"
 description = "One keyboard and mouse for a Mac and a PC, in either direction."

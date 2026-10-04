@@ -830,7 +830,16 @@ pub fn run() {
                         app.open(target, Page::About);
                     }
                 } else if id == *quit.id() {
+                    // Let the engine give the pointer back (bounded wait: a stuck engine must not
+                    // stop Quit), then remove the tray icon before exiting.
                     ui(Ui::Quit);
+                    let t = Instant::now();
+                    while !crate::engine::RELEASED.load(std::sync::atomic::Ordering::SeqCst) && t.elapsed() < Duration::from_millis(1500) {
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    app.panels.clear();
+                    tray.take();
+                    std::process::exit(0);
                 }
             }
             _ => {}
