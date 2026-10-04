@@ -1,12 +1,13 @@
 #!/bin/sh
-# Builds dist/Bridge.app (Apple silicon) and dist/bridge.exe (Windows x64).
-# Needs: rustup target add x86_64-pc-windows-gnu && brew install mingw-w64
+# Builds dist/Bridge.app (universal) and the release archives.
+# The Windows exe comes from CI (MSVC, self-tested on a real Windows machine) for the commit being
+# built: push first, wait for CI, then run this. BRIDGE_DEV=1 uses a local MinGW build instead,
+# which needs WebView2Loader.dll next to it and must never be published.
 set -e
 cd "$(dirname "$0")/.."
 cargo test --quiet
 cargo build --release --target aarch64-apple-darwin
 cargo build --release --target x86_64-apple-darwin
-cargo build --release --target x86_64-pc-windows-gnu
 
 rm -rf dist && mkdir -p dist/Bridge.app/Contents/MacOS
 # Universal: runs on Apple silicon and Intel Macs.
@@ -38,7 +39,17 @@ else
   echo "warning: no '$SIGN_ID' identity; signing ad-hoc (Accessibility resets on update)"
   codesign --force --sign - dist/Bridge.app
 fi
-cp target/x86_64-pc-windows-gnu/release/bridge.exe dist/Bridge.exe
+if [ -n "$BRIDGE_DEV" ]; then
+  cargo build --release --target x86_64-pc-windows-gnu
+  cp target/x86_64-pc-windows-gnu/release/bridge.exe dist/Bridge.exe
+else
+  SHA=$(git rev-parse HEAD)
+  [ -z "$(git status --porcelain -- src assets Cargo.toml Cargo.lock build.rs)" ] || { echo "error: commit your changes first; the Windows exe is built by CI from a commit"; exit 1; }
+  RUN=$(gh run list --commit "$SHA" --workflow CI --status success --json databaseId -q '.[0].databaseId')
+  [ -n "$RUN" ] || { echo "error: no successful CI run for $SHA yet (push and wait for it)"; exit 1; }
+  rm -rf target/ci-win && gh run download "$RUN" --name Bridge-windows --dir target/ci-win
+  cp target/ci-win/bridge.exe dist/Bridge.exe
+fi
 
 # Release archives: ditto keeps the signature and bundle intact.
 (cd dist && ditto -c -k --keepParent Bridge.app Bridge-mac.zip && zip -q Bridge-windows.zip Bridge.exe && cp Bridge.exe Bridge-windows.exe)

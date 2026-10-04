@@ -5,7 +5,7 @@ pub fn enabled() -> bool {
     #[cfg(target_os = "macos")]
     return plist().exists();
     #[cfg(windows)]
-    return std::process::Command::new("schtasks")
+    return hidden("schtasks")
         .args(["/Query", "/TN", "Bridge"])
         .output()
         .is_ok_and(|o| o.status.success())
@@ -94,9 +94,18 @@ fn plist() -> std::path::PathBuf {
     dirs::home_dir().unwrap().join("Library/LaunchAgents/dev.ishanmalu.bridge.plist")
 }
 
+/// A helper process with no console window (a GUI app's children would otherwise flash one).
+#[cfg(windows)]
+fn hidden(name: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut c = std::process::Command::new(name);
+    c.creation_flags(0x0800_0000);
+    c
+}
+
 #[cfg(windows)]
 fn run_key_set() -> bool {
-    std::process::Command::new("reg")
+    hidden("reg")
         .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "Bridge"])
         .output()
         .is_ok_and(|o| o.status.success())

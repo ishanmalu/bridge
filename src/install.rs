@@ -46,6 +46,7 @@ mod win {
     use std::process::Command;
 
     const NO_WINDOW: u32 = 0x0800_0000;
+    const LAUNCH_TASK: &str = "Bridge Launch";
     const UNINSTALL_KEY: &str = r"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Bridge";
 
     fn cmd(name: &str) -> Command {
@@ -98,9 +99,16 @@ mod win {
         if src != exe {
             std::fs::copy(&src, &exe).map_err(|e| format!("couldn't copy into {}: {e}", dir.display()))?;
         }
+        // The shortcut runs an on-demand elevated task, so Bridge opened from the Start menu can
+        // type into admin windows and update itself, without a UAC prompt every time.
+        let _ = cmd("schtasks")
+            .args(["/Create", "/F", "/TN", LAUNCH_TASK, "/TR", &format!("\"{}\"", exe.display())])
+            .args(["/SC", "ONCE", "/ST", "00:00", "/SD", "01/01/2000", "/RL", "HIGHEST"])
+            .status();
         let ps = format!(
-            "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{}'); $s.TargetPath='{}'; $s.WorkingDirectory='{}'; $s.Description='One keyboard and mouse for a Mac and a PC'; $s.Save()",
+            "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{}'); $s.TargetPath=\"$env:SystemRoot\\System32\\schtasks.exe\"; $s.Arguments='/run /tn \"{}\"'; $s.IconLocation='{},0'; $s.WindowStyle=7; $s.WorkingDirectory='{}'; $s.Description='One keyboard and mouse for a Mac and a PC'; $s.Save()",
             shortcut().display(),
+            LAUNCH_TASK,
             exe.display(),
             dir.display()
         );
@@ -136,16 +144,17 @@ mod win {
     pub fn uninstall() -> Result<(), String> {
         let dir = dir();
         let _ = cmd("schtasks").args(["/Delete", "/F", "/TN", "Bridge"]).status();
+        let _ = cmd("schtasks").args(["/Delete", "/F", "/TN", LAUNCH_TASK]).status();
         let _ = cmd("reg").args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "Bridge", "/f"]).status();
         let _ = cmd("netsh").args(["advfirewall", "firewall", "delete", "rule", "name=Bridge"]).status();
         let _ = cmd("reg").args(["delete", UNINSTALL_KEY, "/f"]).status();
         let _ = std::fs::remove_file(shortcut());
         let _ = cmd("taskkill").args(["/F", "/IM", "Bridge.exe", "/FI", &format!("PID ne {}", std::process::id())]).status();
+        crate::ui::notify_cli("Bridge was uninstalled. Your settings stay in %APPDATA%\\Bridge.");
         // The folder holds this very exe, so remove it a moment after we exit.
         let _ = cmd("cmd")
             .args(["/C", &format!("timeout /T 2 /NOBREAK >NUL & rmdir /S /Q \"{}\"", dir.display())])
             .spawn();
-        crate::ui::notify_cli("Bridge was uninstalled. Your settings stay in %APPDATA%\\Bridge.");
         std::process::exit(0);
     }
 

@@ -202,6 +202,10 @@ struct App {
     banner_action: Option<Page>,
     release: Arc<Mutex<Option<updater::Release>>>,
     next_poll: Instant,
+    /// A dropped connection is only announced if it stays down a few seconds (Wi-Fi blips).
+    lost_at: Option<Instant>,
+    lost_shown: bool,
+    announced_connect: bool,
 }
 
 impl App {
@@ -283,6 +287,16 @@ impl App {
             Ok(w) => w,
             Err(e) => {
                 log::error!("couldn't open the {} window: {e}", page.name());
+                #[cfg(windows)]
+                {
+                    static TOLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                    if !TOLD.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                        std::thread::spawn(|| {
+                            notify_cli("Bridge's windows need Microsoft Edge WebView2, which isn't on this PC. The download page will open; install it, then reopen Bridge. Sharing your keyboard and mouse keeps working meanwhile.");
+                            open_url("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+                        });
+                    }
+                }
                 return;
             }
         };
@@ -645,6 +659,33 @@ pub fn run() {
         banner_action: None,
         release,
         next_poll: Instant::now(),
+        lost_at: None,
+        lost_shown: false,
+        announced_connect: false,
+    };
+    // A menu bar app has no Edit menu, and without one ⌘C/⌘V/⌘A do nothing in its windows.
+    #[cfg(target_os = "macos")]
+    let _app_menu = {
+        use tray_icon::menu::Submenu;
+        let app_menu = Menu::new();
+        let bridge = Submenu::with_items("Bridge", true, &[&PredefinedMenuItem::close_window(None)]).unwrap();
+        let edit = Submenu::with_items(
+            "Edit",
+            true,
+            &[
+                &PredefinedMenuItem::undo(None),
+                &PredefinedMenuItem::redo(None),
+                &PredefinedMenuItem::separator(),
+                &PredefinedMenuItem::cut(None),
+                &PredefinedMenuItem::copy(None),
+                &PredefinedMenuItem::paste(None),
+                &PredefinedMenuItem::select_all(None),
+            ],
+        )
+        .unwrap();
+        let _ = app_menu.append_items(&[&bridge, &edit]);
+        app_menu.init_for_nsapp();
+        app_menu
     };
     let mut tray = None;
     let mut tray_state = None;
@@ -674,6 +715,12 @@ pub fn run() {
                     app.send(Page::Banner, &json!({"type": "bannerOut"}));
                     app.banner_until = None;
                     app.banner_closing = Some(now + Duration::from_millis(350));
+                }
+                if app.lost_at.is_some_and(|t| now >= t) {
+                    app.lost_at = None;
+                    app.lost_shown = true;
+                    let peer = app.status.as_ref().and_then(|s| s.peer.clone()).unwrap_or_else(|| "the other machine".into());
+                    notify(&format!("Lost the connection to {peer}. Bridge keeps trying in the background."));
                 }
                 if now >= app.next_poll {
                     app.next_poll = now + Duration::from_secs(1);
@@ -714,10 +761,17 @@ pub fn run() {
                 wake.set_enabled(s.peer.is_some() && !s.connected);
                 pause.set_checked(s.paused);
                 let was_connected = app.status.as_ref().map(|o| o.connected);
-                if was_connected == Some(false) && s.connected {
-                    notify(&format!("Connected to {peer}."));
+                if was_connected != Some(true) && s.connected {
+                    if app.lost_shown {
+                        notify(&format!("Reconnected to {peer}."));
+                    } else if !app.announced_connect && app.lost_at.is_none() {
+                        notify(&format!("Connected to {peer}."));
+                    }
+                    app.announced_connect = true;
+                    app.lost_at = None;
+                    app.lost_shown = false;
                 } else if was_connected == Some(true) && !s.connected && s.peer.is_some() {
-                    notify(&format!("Lost the connection to {peer}. Reconnecting…"));
+                    app.lost_at = Some(Instant::now() + Duration::from_secs(6));
                 }
                 let state = match (s.connected, s.mode) {
                     (false, _) => TrayState::Off,
@@ -768,7 +822,7 @@ pub fn run() {
         }
 
         // Wake up for banner timing and permission polling only when something needs it.
-        let mut wake_at = app.banner_closing.or(app.banner_until);
+        let mut wake_at = [app.banner_closing.or(app.banner_until), app.lost_at].into_iter().flatten().min();
         if app.panels.contains_key(&Page::Welcome) {
             wake_at = Some(wake_at.map_or(app.next_poll, |t| t.min(app.next_poll)));
         }

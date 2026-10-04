@@ -15,8 +15,31 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
-      - run: cargo build --release
-      # Real Windows: pointer injection, clipboard text and files, network.
       # (The Mac runner can't grant Accessibility, so it runs the unit and end-to-end tests only.)
-      - if: runner.os == 'Windows'
-        run: cargo run -- selftest
+
+  # The Windows exe that ships. Built with MSVC so the WebView2 loader is linked in statically
+  # (a MinGW build depends on WebView2Loader.dll, which PCs don't have).
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: Only system DLLs
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object FullName -like '*Hostx64\x64*' | Select-Object -First 1
+          $dlls = & $dumpbin.FullName /dependents target\release\bridge.exe | Select-String '\.dll' | ForEach-Object { $_.ToString().Trim() }
+          $dlls
+          if ($dlls -match 'WebView2Loader|vcruntime|msvcp') { throw "bridge.exe depends on a DLL Windows doesn't ship" }
+      - name: Self-test the release exe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath target\release\bridge.exe -ArgumentList selftest -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "selftest failed: $($p.ExitCode) checks" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bridge-windows
+          path: target/release/bridge.exe

@@ -118,7 +118,7 @@ const F_SCROLL_PX_Y: u32 = 96;
 const F_SCROLL_PX_X: u32 = 97;
 
 /// Stamped on everything we post, so the tap can tell our events from the user's.
-const MAGIC: i64 = 0x0B21_D6E;
+const MAGIC: i64 = 0x00B2_1D6E;
 
 // Modifier flags: generic, then the device-specific left/right bits.
 const SHIFT: u64 = 0x20000;
@@ -383,7 +383,7 @@ pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
     };
     std::thread::Builder::new()
         .name("event-tap".into())
-        .spawn(move || run_tap())
+        .spawn(run_tap)
         .unwrap();
     let pos = unsafe {
         let e = CGEventCreate(null_mut());
