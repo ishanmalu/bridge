@@ -15,7 +15,7 @@ use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWi
 use tao::window::{Window, WindowBuilder, WindowId};
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIconBuilder};
-use wry::{WebView, WebViewBuilder};
+use wry::{WebContext, WebView, WebViewBuilder};
 
 const APP_HTML: &str = include_str!("../assets/ui/app.html");
 const APP_ICON: &[u8] = include_bytes!("../assets/icon-256.png");
@@ -206,6 +206,20 @@ struct App {
     lost_at: Option<Instant>,
     lost_shown: bool,
     announced_connect: bool,
+    web_context: WebContext,
+}
+
+/// Where the webview keeps its data. WebView2 defaults to a folder next to the exe, which is
+/// read-only in Program Files ("Microsoft Edge can't read and write to its data directory").
+fn web_context() -> WebContext {
+    #[cfg(windows)]
+    {
+        let dir = dirs::data_local_dir().unwrap_or_else(std::env::temp_dir).join("Bridge").join("WebView2");
+        let _ = std::fs::create_dir_all(&dir);
+        WebContext::new(Some(dir))
+    }
+    #[cfg(not(windows))]
+    WebContext::new(None)
 }
 
 impl App {
@@ -274,7 +288,7 @@ impl App {
             "autoCheck": page == Page::About,
         });
         let proxy = PROXY.get().unwrap().lock().unwrap().clone();
-        let built = WebViewBuilder::new()
+        let built = WebViewBuilder::new_with_web_context(&mut self.web_context)
             .with_html(APP_HTML)
             .with_initialization_script(format!("window.BRIDGE = {init};"))
             .with_transparent(banner)
@@ -662,6 +676,7 @@ pub fn run() {
         lost_at: None,
         lost_shown: false,
         announced_connect: false,
+        web_context: web_context(),
     };
     // A menu bar app has no Edit menu, and without one ⌘C/⌘V/⌘A do nothing in its windows.
     #[cfg(target_os = "macos")]
@@ -828,4 +843,45 @@ pub fn run() {
         }
         *flow = wake_at.map_or(ControlFlow::Wait, ControlFlow::WaitUntil);
     });
+}
+
+/// `bridge uitest`: opens a hidden window with the real webview, loads the Settings page and waits
+/// for it to report in. Catches a missing or unusable webview engine. Exit code 0 = fine.
+pub fn ui_selftest() -> i32 {
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+    let Ok(window) = WindowBuilder::new().with_visible(false).build(&event_loop) else {
+        println!("  FAIL  window: couldn't create one");
+        return 1;
+    };
+    let mut ctx = web_context();
+    let built = WebViewBuilder::new_with_web_context(&mut ctx)
+        .with_html(APP_HTML)
+        .with_initialization_script(format!("window.BRIDGE = {};", json!({"page": "settings", "os": os_name(), "icon": ""})))
+        .with_ipc_handler(move |r| {
+            let _ = proxy.send_event(UserEvent::Ipc(Page::Settings, r.body().clone()));
+        })
+        .build(&window);
+    let webview = match built {
+        Ok(w) => w,
+        Err(e) => {
+            println!("  FAIL  window: {e}");
+            return 1;
+        }
+    };
+    let start = Instant::now();
+    event_loop.run(move |ev, _, flow| {
+        let _keep = (&webview, &window);
+        *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(200));
+        if let TaoEvent::UserEvent(UserEvent::Ipc(_, body)) = &ev {
+            if body.contains("\"ready\"") {
+                println!("  ok    window: the Settings page loaded in the webview");
+                std::process::exit(0);
+            }
+        }
+        if start.elapsed() > Duration::from_secs(30) {
+            println!("  FAIL  window: the page never loaded");
+            std::process::exit(1);
+        }
+    })
 }

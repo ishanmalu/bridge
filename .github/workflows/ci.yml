@@ -39,6 +39,15 @@ jobs:
         run: |
           $p = Start-Process -FilePath target\release\bridge.exe -ArgumentList selftest -Wait -PassThru -NoNewWindow
           if ($p.ExitCode -ne 0) { throw "selftest failed: $($p.ExitCode) checks" }
+      - name: Windows open and the page loads (from Program Files, like a real install)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:ProgramFiles\Bridge" | Out-Null
+          Copy-Item target\release\bridge.exe "$env:ProgramFiles\Bridge\Bridge.exe"
+          $p = Start-Process -FilePath "$env:ProgramFiles\Bridge\Bridge.exe" -ArgumentList uitest -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "uitest failed" }
+          if (-not (Test-Path "$env:LOCALAPPDATA\Bridge\WebView2")) { throw "webview data isn't in LOCALAPPDATA" }
+          if (Test-Path "$env:ProgramFiles\Bridge\Bridge.exe.WebView2") { throw "webview wrote next to the exe" }
       - uses: actions/upload-artifact@v4
         with:
           name: Bridge-windows

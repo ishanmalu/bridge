@@ -146,6 +146,7 @@ fn main() {
             Ok(None) => println!("Bridge {} is up to date.", env!("CARGO_PKG_VERSION")),
             Err(e) => fail(&e),
         },
+        ["uitest"] => std::process::exit(ui::ui_selftest()),
         ["selftest"] => std::process::exit(selftest::run()),
         ["--version" | "-V"] => println!("bridge {}", env!("CARGO_PKG_VERSION")),
         _ => print!("{HELP}"),
