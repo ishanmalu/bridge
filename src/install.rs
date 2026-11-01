@@ -162,10 +162,12 @@ mod win {
         // Any other running copy (e.g. the tray app when updating from a terminal) would hold
         // the port and the new version would bow out; stop it.
         let _ = cmd("taskkill").args(["/F", "/IM", "Bridge.exe", "/FI", &format!("PID ne {}", std::process::id())]).status();
-        // `start` detaches it from us, so it outlives this process.
-        cmd("cmd")
-            .args(["/C", "timeout /T 1 /NOBREAK >NUL & start \"\""])
-            .arg(exe)
+        let ps = format!(
+            "Start-Sleep -Milliseconds 800; Start-Process -FilePath '{}'",
+            exe.display().to_string().replace('\'', "''")
+        );
+        cmd("powershell")
+            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &ps])
             .spawn()
             .map_err(|e| e.to_string())?;
         std::process::exit(0);

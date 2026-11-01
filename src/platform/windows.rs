@@ -53,15 +53,18 @@ unsafe extern "system" fn mouse_proc(code: i32, wp: WPARAM, lp: LPARAM) -> LRESU
     match wp.0 as u32 {
         WM_MOUSEMOVE => {
             let pt = ms.pt;
+            let mut last = sh.last.lock().unwrap();
+            let (dx, dy) = last.map(|l| (pt.x - l.x, pt.y - l.y)).unwrap_or((0, 0));
             if capturing {
                 let c = *sh.center.lock().unwrap();
-                let (dx, dy) = (pt.x - c.x, pt.y - c.y);
-                if dx != 0 || dy != 0 {
-                    send(Input::Move { x: c.x as f64, y: c.y as f64, dx: dx as f64, dy: dy as f64 });
+                if pt.x != c.x || pt.y != c.y {
+                    if dx != 0 || dy != 0 {
+                        send(Input::Move { x: c.x as f64, y: c.y as f64, dx: dx as f64, dy: dy as f64 });
+                    }
+                    *last = Some(c);
+                    let _ = SetCursorPos(c.x, c.y);
                 }
             } else {
-                let mut last = sh.last.lock().unwrap();
-                let (dx, dy) = last.map(|l| (pt.x - l.x, pt.y - l.y)).unwrap_or((0, 0));
                 *last = Some(pt);
                 send(Input::Move { x: pt.x as f64, y: pt.y as f64, dx: dx as f64, dy: dy as f64 });
             }
@@ -286,8 +289,12 @@ impl Platform for Win {
         if on {
             // Park the pointer mid-screen so movement in every direction registers.
             let (cx, cy) = crate::geometry::center(&self.displays());
-            if let Ok(mut c) = sh.center.lock() {
-                *c = POINT { x: cx as i32, y: cy as i32 };
+            let c = POINT { x: cx as i32, y: cy as i32 };
+            if let Ok(mut cp) = sh.center.lock() {
+                *cp = c;
+            }
+            if let Ok(mut l) = sh.last.lock() {
+                *l = Some(c);
             }
             unsafe {
                 let _ = SetCursorPos(cx as i32, cy as i32);
