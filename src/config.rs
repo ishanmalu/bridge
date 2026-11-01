@@ -28,8 +28,13 @@ pub struct Config {
     pub private_key: String,
     pub public_key: String,
     pub peer: Option<Peer>,
+    /// Last known displays reported by the paired peer.
+    #[serde(default)]
+    pub peer_displays: Vec<crate::proto::DisplayInfo>,
     /// Which edge of this machine's screens the other machine sits beyond.
     pub peer_side: Side,
+    /// Offset along the shared border (in pixels) of the other machine's screens.
+    pub peer_offset: f64,
     /// How far (in pixels) you have to push into the edge before crossing.
     pub edge_resistance: f64,
     /// Pause edge crossing; the hotkey still works.
@@ -43,6 +48,10 @@ pub struct Config {
     pub swap_cmd_ctrl: bool,
     /// Double-tap this key (HID usage) to switch. Defaults: Right Option on Mac, Right Ctrl on PC.
     pub hotkey: u16,
+    /// Unified Desktop mode: route any mouse/keyboard to whichever screen has the active cursor.
+    pub unified_desktop: bool,
+    /// When connecting, start by forwarding input to the peer if true.
+    pub forward_on_connect: bool,
     /// Clipboard text, images and files travel when you switch.
     pub share_clipboard: bool,
     /// Files bigger than this (MB, total) are left behind.
@@ -67,7 +76,9 @@ impl Default for Config {
             private_key: String::new(),
             public_key: String::new(),
             peer: None,
+            peer_displays: Vec::new(),
             peer_side: if mac { Side::Right } else { Side::Left },
+            peer_offset: 0.0,
             edge_resistance: 30.0,
             paused: false,
             incoming_pointer_scale: 1.0,
@@ -75,6 +86,8 @@ impl Default for Config {
             invert_incoming_scroll: false,
             swap_cmd_ctrl: true,
             hotkey: if mac { crate::keymap::RALT } else { crate::keymap::RCTRL },
+            unified_desktop: true,
+            forward_on_connect: false,
             share_clipboard: true,
             max_clipboard_files_mb: 200,
             block_in_fullscreen: true,

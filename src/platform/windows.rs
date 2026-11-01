@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, OnceLock};
 use windows::core::BOOL;
-use windows::Win32::Foundation::{LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -28,6 +28,43 @@ fn send(i: Input) {
     if let Some(sh) = SHARED.get() {
         let _ = sh.events.send(Event::Input(i));
     }
+}
+
+fn send_event(e: Event) {
+    if let Some(sh) = SHARED.get() {
+        let _ = sh.events.send(e);
+    }
+}
+
+const PBT_APMSUSPEND_U32: u32 = 4;
+const PBT_APMRESUMESUSPEND_U32: u32 = 7;
+const PBT_APMRESUMEAUTOMATIC_U32: u32 = 18;
+
+unsafe extern "system" fn power_wnd_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    match msg {
+        WM_POWERBROADCAST => {
+            let wp_u32 = wp.0 as u32;
+            if wp_u32 == PBT_APMSUSPEND_U32 {
+                log::info!("Windows: system suspending (sleep)");
+                send_event(Event::SystemSleep);
+            } else if wp_u32 == PBT_APMRESUMEAUTOMATIC_U32 || wp_u32 == PBT_APMRESUMESUSPEND_U32 {
+                log::info!("Windows: system resumed from sleep");
+                send_event(Event::SystemWake);
+            }
+        }
+        WM_QUERYENDSESSION => {
+            log::info!("Windows: query end session (shutdown/logoff requested)");
+            return LRESULT(1);
+        }
+        WM_ENDSESSION => {
+            if wp.0 != 0 {
+                log::info!("Windows: end session (shutdown/logoff confirmed)");
+                send_event(Event::SystemShutdown);
+            }
+        }
+        _ => {}
+    }
+    DefWindowProcW(hwnd, msg, wp, lp)
 }
 
 const WHEEL_TO_PX: f64 = 40.0 / 120.0;
@@ -53,15 +90,18 @@ unsafe extern "system" fn mouse_proc(code: i32, wp: WPARAM, lp: LPARAM) -> LRESU
     match wp.0 as u32 {
         WM_MOUSEMOVE => {
             let pt = ms.pt;
+            let mut last = sh.last.lock().unwrap();
+            let (dx, dy) = last.map(|l| (pt.x - l.x, pt.y - l.y)).unwrap_or((0, 0));
             if capturing {
                 let c = *sh.center.lock().unwrap();
-                let (dx, dy) = (pt.x - c.x, pt.y - c.y);
-                if dx != 0 || dy != 0 {
-                    send(Input::Move { x: c.x as f64, y: c.y as f64, dx: dx as f64, dy: dy as f64 });
+                if pt.x != c.x || pt.y != c.y {
+                    if dx != 0 || dy != 0 {
+                        send(Input::Move { x: c.x as f64, y: c.y as f64, dx: dx as f64, dy: dy as f64 });
+                    }
+                    *last = Some(c);
+                    let _ = SetCursorPos(c.x, c.y);
                 }
             } else {
-                let mut last = sh.last.lock().unwrap();
-                let (dx, dy) = last.map(|l| (pt.x - l.x, pt.y - l.y)).unwrap_or((0, 0));
                 *last = Some(pt);
                 send(Input::Move { x: pt.x as f64, y: pt.y as f64, dx: dx as f64, dy: dy as f64 });
             }
@@ -213,6 +253,31 @@ pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
             } else {
                 log::info!("input hooks running");
             }
+
+            let class_name = windows::core::w!("BridgePowerMsgWin");
+            let wc = WNDCLASSEXW {
+                cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+                lpfnWndProc: Some(power_wnd_proc),
+                hInstance: windows::Win32::System::LibraryLoader::GetModuleHandleW(None).unwrap_or_default().into(),
+                lpszClassName: class_name,
+                ..Default::default()
+            };
+            let _ = RegisterClassExW(&wc);
+            let _hwnd = CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                class_name,
+                class_name,
+                WS_OVERLAPPED,
+                0,
+                0,
+                0,
+                0,
+                None,
+                None,
+                Some(windows::Win32::System::LibraryLoader::GetModuleHandleW(None).unwrap_or_default().into()),
+                None,
+            );
+
             let mut msg = MSG::default();
             while GetMessageW(&mut msg, None, 0, 0).as_bool() {
                 let _ = TranslateMessage(&msg);
@@ -272,6 +337,61 @@ impl Platform for Win {
         out
     }
 
+    fn display_infos(&self) -> Vec<crate::proto::DisplayInfo> {
+        struct WinMon {
+            x: f64,
+            y: f64,
+            w: f64,
+            h: f64,
+            is_primary: bool,
+            hmon: isize,
+        }
+        unsafe extern "system" fn cb(m: HMONITOR, _: HDC, _: *mut RECT, data: LPARAM) -> BOOL {
+            let out = &mut *(data.0 as *mut Vec<WinMon>);
+            let mut mi = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+            if GetMonitorInfoW(m, &mut mi).as_bool() {
+                let r = mi.rcMonitor;
+                out.push(WinMon {
+                    x: r.left as f64,
+                    y: r.top as f64,
+                    w: (r.right - r.left) as f64,
+                    h: (r.bottom - r.top) as f64,
+                    is_primary: (mi.dwFlags & 1) != 0,
+                    hmon: m.0 as isize,
+                });
+            }
+            BOOL(1)
+        }
+        let mut mons: Vec<WinMon> = Vec::new();
+        unsafe {
+            let _ = EnumDisplayMonitors(None, None, Some(cb), LPARAM(&mut mons as *mut _ as isize));
+        }
+        mons.sort_by_key(|m| !m.is_primary);
+        mons.into_iter()
+            .enumerate()
+            .map(|(i, m)| {
+                let w_mm = m.w * 0.264583;
+                let h_mm = m.h * 0.264583;
+                let inches = ((w_mm / 25.4).powi(2) + (h_mm / 25.4).powi(2)).sqrt();
+                crate::proto::DisplayInfo {
+                    id: m.hmon as u64,
+                    name: format!("Display {}", i + 1),
+                    x: m.x,
+                    y: m.y,
+                    width: m.w,
+                    height: m.h,
+                    width_mm: (w_mm * 10.0).round() / 10.0,
+                    height_mm: (h_mm * 10.0).round() / 10.0,
+                    inches: (inches * 10.0).round() / 10.0,
+                    scale_factor: 1.0,
+                    pixel_width: m.w as u32,
+                    pixel_height: m.h as u32,
+                    is_primary: m.is_primary,
+                }
+            })
+            .collect()
+    }
+
 
     fn cursor(&self) -> (f64, f64) {
         let mut p = POINT::default();
@@ -286,8 +406,12 @@ impl Platform for Win {
         if on {
             // Park the pointer mid-screen so movement in every direction registers.
             let (cx, cy) = crate::geometry::center(&self.displays());
-            if let Ok(mut c) = sh.center.lock() {
-                *c = POINT { x: cx as i32, y: cy as i32 };
+            let c = POINT { x: cx as i32, y: cy as i32 };
+            if let Ok(mut cp) = sh.center.lock() {
+                *cp = c;
+            }
+            if let Ok(mut l) = sh.last.lock() {
+                *l = Some(c);
             }
             unsafe {
                 let _ = SetCursorPos(cx as i32, cy as i32);

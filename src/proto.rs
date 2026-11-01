@@ -37,6 +37,17 @@ pub enum Side {
     Bottom,
 }
 
+impl Side {
+    pub fn opposite(self) -> Side {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+            Side::Top => Side::Bottom,
+            Side::Bottom => Side::Top,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Media {
     PlayPause,
@@ -76,4 +87,61 @@ pub enum Msg {
     Key { hid: u16, down: bool },
     Media(Media),
     Clipboard(Clip),
+    /// The sender changed which side this machine sits on; recipient sets the opposite side.
+    PeerSide(Side),
+    /// Complete layout change with relative offset along the border.
+    PeerLayout { side: Side, offset: f64 },
+    /// Local machine's active displays topology, resolutions, scale and physical inches.
+    Displays(Vec<DisplayInfo>),
+    /// Clean disconnect before quitting, sleeping, or shutting down.
+    Bye(ByeReason),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByeReason {
+    Quit,
+    Sleep,
+    Shutdown,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DisplayInfo {
+    pub id: u64,
+    pub name: String,
+    /// Desktop coordinates in virtual OS units (points on Mac, pixels on Windows)
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    /// Physical dimensions in millimeters
+    pub width_mm: f64,
+    pub height_mm: f64,
+    /// Diagonal size in inches (e.g. 13.6, 23.8, 27.0)
+    pub inches: f64,
+    /// Scale factor (e.g. 2.0 for Retina, 1.0 for 100%, 1.5 for 150%)
+    pub scale_factor: f64,
+    /// Native pixel resolution
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub is_primary: bool,
+}
+
+impl DisplayInfo {
+    #[allow(dead_code)]
+    pub fn description(&self) -> String {
+        format!("{:.1}\" ({}x{})", self.inches, self.pixel_width, self.pixel_height)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opposite_sides() {
+        assert_eq!(Side::Left.opposite(), Side::Right);
+        assert_eq!(Side::Right.opposite(), Side::Left);
+        assert_eq!(Side::Top.opposite(), Side::Bottom);
+        assert_eq!(Side::Bottom.opposite(), Side::Top);
+    }
 }

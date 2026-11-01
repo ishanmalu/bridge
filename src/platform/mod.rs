@@ -42,6 +42,33 @@ pub enum Input {
 pub trait Platform: Send + Sync {
     /// Every active display, in the global coordinate space the pointer moves in.
     fn displays(&self) -> Vec<Rect>;
+    /// Detailed display specifications (inches, resolution, physical dimensions, offsets).
+    fn display_infos(&self) -> Vec<crate::proto::DisplayInfo> {
+        self.displays()
+            .into_iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let w_mm = r.w * 0.264583;
+                let h_mm = r.h * 0.264583;
+                let inches = ((w_mm / 25.4).powi(2) + (h_mm / 25.4).powi(2)).sqrt();
+                crate::proto::DisplayInfo {
+                    id: i as u64,
+                    name: format!("Display {}", i + 1),
+                    x: r.x,
+                    y: r.y,
+                    width: r.w,
+                    height: r.h,
+                    width_mm: w_mm,
+                    height_mm: h_mm,
+                    inches: (inches * 10.0).round() / 10.0,
+                    scale_factor: 1.0,
+                    pixel_width: r.w as u32,
+                    pixel_height: r.h as u32,
+                    is_primary: i == 0,
+                }
+            })
+            .collect()
+    }
     /// Current pointer position (used by `bridge selftest`).
     fn cursor(&self) -> (f64, f64);
     /// On: local input is swallowed (still reported as Input) and the pointer is frozen and hidden.

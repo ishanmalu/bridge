@@ -229,6 +229,7 @@ impl App {
                 p.window.set_visible(true);
                 p.window.set_focus();
                 crate::platform::activate_app();
+                self.refresh(page);
             }
             return;
         }
@@ -281,11 +282,19 @@ impl App {
                 window.set_outer_position(LogicalPosition::new(mp.x + (ms.width - w) / 2.0, mp.y + (ms.height - h) / 2.5));
             }
         }
+        let state = match page {
+            Page::Welcome => self.welcome_state(),
+            Page::Settings => self.settings_state(),
+            Page::About => json!({"type": "about", "version": env!("CARGO_PKG_VERSION")}),
+            Page::Pair => json!({"type": "me", "name": crate::machine_name(), "ip": pair::local_ip().map(|i| i.to_string())}),
+            Page::Banner => json!({}),
+        };
         let init = json!({
             "page": page.name(),
             "os": os_name(),
             "icon": format!("data:image/png;base64,{}", base64_encode(APP_ICON)),
             "autoCheck": page == Page::About,
+            "state": state,
         });
         let proxy = PROXY.get().unwrap().lock().unwrap().clone();
         let built = WebViewBuilder::new_with_web_context(&mut self.web_context)
@@ -321,6 +330,7 @@ impl App {
         }
         self.by_window.insert(window.id(), page);
         self.panels.insert(page, Panel { window, webview });
+        self.refresh(page);
     }
 
     fn close(&mut self, page: Page) {
@@ -338,7 +348,9 @@ impl App {
 
     fn send(&self, page: Page, v: &Value) {
         if let Some(p) = self.panels.get(&page) {
-            let _ = p.webview.evaluate_script(&format!("window.bridge && window.bridge.recv({v})"));
+            if let Err(e) = p.webview.evaluate_script(&format!("window.bridge && window.bridge.recv({v})")) {
+                log::warn!("evaluate_script failed for {page:?}: {e}");
+            }
         }
     }
 
@@ -359,6 +371,13 @@ impl App {
             o.remove("public_key");
             o.remove("peer");
         }
+        let empty_displays = Vec::new();
+        let peer_displays = self
+            .status
+            .as_ref()
+            .map(|s| &s.peer_displays)
+            .filter(|d| !d.is_empty())
+            .unwrap_or(&c.peer_displays);
         json!({
             "type": "settings",
             "cfg": cfg,
@@ -366,6 +385,8 @@ impl App {
             "autostart": autostart::enabled(),
             "peer": c.peer.as_ref().map(|p| json!({"name": p.name, "os": p.os})),
             "connected": self.status.as_ref().is_some_and(|s| s.connected),
+            "local_displays": self.status.as_ref().map(|s| &s.local_displays).unwrap_or(&empty_displays),
+            "peer_displays": peer_displays,
         })
     }
 
@@ -418,11 +439,45 @@ impl App {
         if key == "paused" {
             let _ = self.tx.send(Event::Ui(Ui::Refresh));
         }
+        if key == "peer_side" || key == "peer_offset" {
+            let (side, offset) = {
+                let c = self.cfg.read().unwrap();
+                (c.peer_side, c.peer_offset)
+            };
+            let _ = self.tx.send(Event::Ui(Ui::PeerLayoutChanged { side, offset }));
+        }
     }
 
     fn ipc(&mut self, target: &EventLoopWindowTarget<UserEvent>, page: Page, body: &str) {
         let Ok(m) = serde_json::from_str::<Value>(body) else { return };
         match m["cmd"].as_str().unwrap_or("") {
+            "setLiveLayout" => {
+                if let (Some(side_str), Some(offset)) = (m["side"].as_str(), m["offset"].as_f64()) {
+                    let side_val = serde_json::Value::String(side_str.to_string());
+                    if let Ok(side) = serde_json::from_value::<crate::proto::Side>(side_val) {
+                        {
+                            let mut c = self.cfg.write().unwrap();
+                            c.peer_side = side;
+                            c.peer_offset = offset;
+                        }
+                        let _ = self.tx.send(Event::Ui(Ui::PeerLayoutChanged { side, offset }));
+                    }
+                }
+            }
+            "setLayout" => {
+                if let (Some(side_str), Some(offset)) = (m["side"].as_str(), m["offset"].as_f64()) {
+                    let side_val = serde_json::Value::String(side_str.to_string());
+                    if let Ok(side) = serde_json::from_value::<crate::proto::Side>(side_val) {
+                        let mut c = self.cfg.write().unwrap();
+                        c.peer_side = side;
+                        c.peer_offset = offset;
+                        c.save();
+                        drop(c);
+                        let _ = self.tx.send(Event::Ui(Ui::PeerLayoutChanged { side, offset }));
+                        self.refresh(Page::Settings);
+                    }
+                }
+            }
             "ready" => {
                 if page == Page::Banner {
                     if let Some(msg) = PENDING_BANNER.lock().unwrap().take() {
@@ -463,6 +518,7 @@ impl App {
             "unpair" => {
                 let mut c = self.cfg.write().unwrap();
                 c.peer = None;
+                c.peer_displays.clear();
                 c.save();
                 drop(c);
                 let _ = self.tx.send(Event::Ui(Ui::Repaired));
@@ -715,9 +771,17 @@ pub fn run() {
                     .with_icon(tray_icon(TrayState::Off));
                 #[cfg(target_os = "macos")]
                 {
-                    b = b.with_icon_as_template(true);
+                    b = b.with_icon_as_template(true).with_title("Bridge");
                 }
-                tray = b.build().ok();
+                match b.build() {
+                    Ok(t) => {
+                        log::info!("tray icon created successfully");
+                        tray = Some(t);
+                    }
+                    Err(e) => {
+                        log::error!("FAILED to create tray icon: {e:?}");
+                    }
+                }
                 if first_run_needed(&cfg.read().unwrap()) {
                     app.open(target, Page::Welcome);
                 }
@@ -786,7 +850,18 @@ pub fn run() {
                     app.lost_at = None;
                     app.lost_shown = false;
                 } else if was_connected == Some(true) && !s.connected && s.peer.is_some() {
-                    app.lost_at = Some(Instant::now() + Duration::from_secs(6));
+                    if let Some(reason) = s.clean_disconnect {
+                        let msg = match reason {
+                            crate::proto::ByeReason::Quit => format!("{peer} closed Bridge."),
+                            crate::proto::ByeReason::Sleep => format!("{peer} went to sleep."),
+                            crate::proto::ByeReason::Shutdown => format!("{peer} shut down."),
+                        };
+                        notify(&msg);
+                        app.lost_at = None;
+                        app.lost_shown = true;
+                    } else {
+                        app.lost_at = Some(Instant::now() + Duration::from_secs(6));
+                    }
                 }
                 let state = match (s.connected, s.mode) {
                     (false, _) => TrayState::Off,
@@ -795,6 +870,8 @@ pub fn run() {
                 };
                 if let Some(t) = &tray {
                     let _ = t.set_tooltip(Some(format!("Bridge: {text}")));
+                    #[cfg(target_os = "macos")]
+                    let _ = t.set_title(Some("Bridge"));
                     if tray_state != Some(state) {
                         let _ = t.set_icon(Some(tray_icon(state)));
                         #[cfg(target_os = "macos")]

@@ -122,6 +122,14 @@ fn main() {
             println!("Other machine is to the {:?}. Config: {}", cfg.peer_side, config::path().display());
             println!("Start at login: {}", if autostart::enabled() { "on" } else { "off" });
         }
+        ["settings" | "config"] => {
+            let p = config::path();
+            println!("Opening configuration file: {}", p.display());
+            #[cfg(target_os = "macos")]
+            let _ = std::process::Command::new("open").arg(&p).spawn();
+            #[cfg(windows)]
+            let _ = std::process::Command::new("notepad").arg(&p).spawn();
+        }
         ["autostart", v @ ("on" | "off")] => match autostart::set(*v == "on") {
             Ok(()) => println!("Start at login: {v}"),
             Err(e) => fail(&e),

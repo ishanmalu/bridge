@@ -79,6 +79,15 @@ extern "C" {
     fn CGGetActiveDisplayList(max: u32, ds: *mut u32, count: *mut u32) -> i32;
     fn CGDisplayBounds(d: u32) -> CGRect;
     fn CGMainDisplayID() -> u32;
+    fn CGDisplayScreenSize(d: u32) -> CGSize;
+    fn CGDisplayCopyDisplayMode(d: u32) -> Ref;
+    fn CGDisplayModeGetPixelWidth(m: Ref) -> usize;
+    fn CGDisplayModeGetPixelHeight(m: Ref) -> usize;
+    fn CGDisplayIsBuiltin(d: u32) -> i32;
+    fn CGDisplayRegisterReconfigurationCallback(
+        cb: extern "C" fn(u32, u32, *mut std::ffi::c_void),
+        user_info: *mut std::ffi::c_void,
+    ) -> i32;
     fn CGDisplayHideCursor(d: u32) -> i32;
     fn CGDisplayShowCursor(d: u32) -> i32;
     fn _CGSDefaultConnection() -> i32;
@@ -368,9 +377,23 @@ fn ask_for_accessibility() -> bool {
     }
 }
 
+extern "C" fn display_reconfig_cb(_d: u32, flags: u32, user_info: *mut std::ffi::c_void) {
+    if (flags & 1) == 0 && !user_info.is_null() {
+        let tx = unsafe { &*(user_info as *const Sender<Event>) };
+        let _ = tx.send(Event::DisplaysChanged);
+    }
+}
+
 pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
-    let shared = Arc::new(Shared { events, capturing: AtomicBool::new(false), tap: AtomicPtr::new(null_mut()) });
+    let shared = Arc::new(Shared { events: events.clone(), capturing: AtomicBool::new(false), tap: AtomicPtr::new(null_mut()) });
     let _ = SHARED.set(shared.clone());
+    let events_tap = events.clone();
+    unsafe {
+        CGDisplayRegisterReconfigurationCallback(
+            display_reconfig_cb,
+            Box::into_raw(Box::new(events)) as *mut _,
+        );
+    }
     let src = unsafe {
         let s = CGEventSourceCreate(1); // HID system state
         CGEventSourceSetLocalEventsSuppressionInterval(s, 0.0);
@@ -383,7 +406,7 @@ pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
     };
     std::thread::Builder::new()
         .name("event-tap".into())
-        .spawn(run_tap)
+        .spawn(move || run_tap(events_tap))
         .unwrap();
     let pos = unsafe {
         let e = CGEventCreate(null_mut());
@@ -405,7 +428,67 @@ pub fn start(events: Sender<Event>) -> Arc<dyn Platform> {
     })
 }
 
-fn run_tap() {
+#[allow(non_camel_case_types)]
+type io_connect_t = u32;
+#[allow(non_camel_case_types)]
+type io_service_t = u32;
+#[allow(non_camel_case_types)]
+type io_object_t = u32;
+#[allow(non_camel_case_types)]
+type IONotificationPortRef = *mut std::ffi::c_void;
+
+#[link(name = "IOKit", kind = "framework")]
+extern "C" {
+    fn IORegisterForSystemPower(
+        refcon: *mut std::ffi::c_void,
+        thePortRef: *mut IONotificationPortRef,
+        callback: unsafe extern "C" fn(*mut std::ffi::c_void, io_service_t, u32, *mut std::ffi::c_void),
+        notifier: *mut io_object_t,
+    ) -> io_connect_t;
+
+    fn IOAllowPowerChange(kernelPort: io_connect_t, notificationID: isize) -> i32;
+    fn IONotificationPortGetRunLoopSource(notify: IONotificationPortRef) -> *mut std::ffi::c_void;
+}
+
+const kIOMessageCanSystemSleep: u32 = 0xe000_0270;
+const kIOMessageSystemWillSleep: u32 = 0xe000_0280;
+const kIOMessageSystemHasPoweredOn: u32 = 0xe000_0300;
+const kIOMessageSystemWillRestart: u32 = 0xe000_0310;
+const kIOMessageSystemWillPowerOff: u32 = 0xe000_0250;
+
+static ROOT_PORT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+unsafe extern "C" fn sleep_callback(
+    refcon: *mut std::ffi::c_void,
+    _service: io_service_t,
+    message_type: u32,
+    message_argument: *mut std::ffi::c_void,
+) {
+    let tx = &*(refcon as *const Sender<Event>);
+    let root_port = ROOT_PORT.load(Ordering::SeqCst);
+    match message_type {
+        kIOMessageCanSystemSleep => {
+            let _ = IOAllowPowerChange(root_port, message_argument as isize);
+        }
+        kIOMessageSystemWillSleep => {
+            log::info!("macOS: system will sleep notification received");
+            let _ = tx.send(Event::SystemSleep);
+            let _ = IOAllowPowerChange(root_port, message_argument as isize);
+        }
+        kIOMessageSystemWillPowerOff | kIOMessageSystemWillRestart => {
+            log::info!("macOS: system will power off / restart notification received");
+            let _ = tx.send(Event::SystemShutdown);
+            let _ = IOAllowPowerChange(root_port, message_argument as isize);
+        }
+        kIOMessageSystemHasPoweredOn => {
+            log::info!("macOS: system has powered on notification received");
+            let _ = tx.send(Event::SystemWake);
+        }
+        _ => {}
+    }
+}
+
+fn run_tap(tx: Sender<Event>) {
     let mask: u64 = [LDOWN, LUP, RDOWN, RUP, MOVED, LDRAG, RDRAG, KEYDOWN, KEYUP, FLAGS, SYSDEFINED, SCROLL, ODOWN, OUP, ODRAG]
         .iter()
         .fold(0, |m, t| m | (1u64 << t));
@@ -428,6 +511,20 @@ fn run_tap() {
         let src = CFMachPortCreateRunLoopSource(null_mut(), tap, 0);
         CFRunLoopAddSource(CFRunLoopGetCurrent(), src, kCFRunLoopCommonModes);
         CGEventTapEnable(tap, true);
+
+        let mut notify_port: IONotificationPortRef = null_mut();
+        let mut notifier: io_object_t = 0;
+        let tx_ptr = Box::into_raw(Box::new(tx)) as *mut std::ffi::c_void;
+        let root = IORegisterForSystemPower(tx_ptr, &mut notify_port, sleep_callback, &mut notifier);
+        if root != 0 && !notify_port.is_null() {
+            ROOT_PORT.store(root, Ordering::SeqCst);
+            let psrc = IONotificationPortGetRunLoopSource(notify_port);
+            if !psrc.is_null() {
+                CFRunLoopAddSource(CFRunLoopGetCurrent(), psrc as Ref, kCFRunLoopCommonModes);
+                log::info!("macOS: registered for system sleep/wake/power notifications");
+            }
+        }
+
         CFRunLoopRun();
     }
 }
@@ -453,6 +550,65 @@ impl Platform for Mac {
             .map(|&d| {
                 let r = unsafe { CGDisplayBounds(d) };
                 Rect { x: r.origin.x, y: r.origin.y, w: r.size.w, h: r.size.h }
+            })
+            .collect()
+    }
+
+    fn display_infos(&self) -> Vec<crate::proto::DisplayInfo> {
+        let mut ids = [0u32; 16];
+        let mut n = 0u32;
+        unsafe { CGGetActiveDisplayList(16, ids.as_mut_ptr(), &mut n) };
+        let main_id = unsafe { CGMainDisplayID() };
+        ids[..n as usize]
+            .iter()
+            .enumerate()
+            .map(|(idx, &d)| {
+                let r = unsafe { CGDisplayBounds(d) };
+                let size_mm = unsafe { CGDisplayScreenSize(d) };
+                let (w_mm, h_mm) = if size_mm.w > 0.0 && size_mm.h > 0.0 {
+                    (size_mm.w, size_mm.h)
+                } else {
+                    (r.size.w * 0.264583, r.size.h * 0.264583)
+                };
+                let w_in = w_mm / 25.4;
+                let h_in = h_mm / 25.4;
+                let inches = (w_in * w_in + h_in * h_in).sqrt();
+                let mode = unsafe { CGDisplayCopyDisplayMode(d) };
+                let (pixel_w, pixel_h) = if !mode.is_null() {
+                    let pw = unsafe { CGDisplayModeGetPixelWidth(mode) as u32 };
+                    let ph = unsafe { CGDisplayModeGetPixelHeight(mode) as u32 };
+                    unsafe { CFRelease(mode) };
+                    (pw, ph)
+                } else {
+                    (r.size.w as u32, r.size.h as u32)
+                };
+                let scale_factor = if r.size.w > 0.0 {
+                    (pixel_w as f64 / r.size.w * 100.0).round() / 100.0
+                } else {
+                    1.0
+                };
+                let is_builtin = unsafe { CGDisplayIsBuiltin(d) } != 0;
+                let is_primary = d == main_id;
+                let name = if is_builtin {
+                    "Mac".to_string()
+                } else {
+                    format!("Display {}", idx + 1)
+                };
+                crate::proto::DisplayInfo {
+                    id: d as u64,
+                    name,
+                    x: r.origin.x,
+                    y: r.origin.y,
+                    width: r.size.w,
+                    height: r.size.h,
+                    width_mm: (w_mm * 10.0).round() / 10.0,
+                    height_mm: (h_mm * 10.0).round() / 10.0,
+                    inches: (inches * 10.0).round() / 10.0,
+                    scale_factor,
+                    pixel_width: pixel_w,
+                    pixel_height: pixel_h,
+                    is_primary,
+                }
             })
             .collect()
     }

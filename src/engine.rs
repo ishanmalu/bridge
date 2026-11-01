@@ -10,7 +10,7 @@ use crate::geometry::{self, Step};
 use crate::keymap;
 use crate::net::Net;
 use crate::platform::{Input, Platform, Rect};
-use crate::proto::{Msg, Os};
+use crate::proto::{Msg, Os, Side};
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
@@ -25,6 +25,10 @@ pub enum Event {
     Connected,
     Disconnected,
     Ui(Ui),
+    DisplaysChanged,
+    SystemSleep,
+    SystemWake,
+    SystemShutdown,
 }
 
 pub enum Ui {
@@ -35,6 +39,9 @@ pub enum Ui {
     Quit,
     /// Settings changed elsewhere; re-report status.
     Refresh,
+    #[allow(dead_code)]
+    PeerSideChanged(crate::proto::Side),
+    PeerLayoutChanged { side: crate::proto::Side, offset: f64 },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -50,6 +57,9 @@ pub struct Status {
     pub connected: bool,
     pub mode: Mode,
     pub paused: bool,
+    pub local_displays: Vec<crate::proto::DisplayInfo>,
+    pub peer_displays: Vec<crate::proto::DisplayInfo>,
+    pub clean_disconnect: Option<crate::proto::ByeReason>,
 }
 
 pub struct Engine {
@@ -62,6 +72,8 @@ pub struct Engine {
     peer_os: Option<Os>,
     displays: Vec<Rect>,
     displays_at: Instant,
+    local_displays: Vec<crate::proto::DisplayInfo>,
+    peer_displays: Vec<crate::proto::DisplayInfo>,
     push: f64,
     /// Where the pointer is while the other machine drives it.
     pos: (f64, f64),
@@ -73,6 +85,10 @@ pub struct Engine {
     hotkey_last_tap: Option<Instant>,
     clipboard: Clipboard,
     last_wake: Option<Instant>,
+    pending_peer_side: Option<crate::proto::Side>,
+    clean_disconnect: Option<crate::proto::ByeReason>,
+    exit_push: f64,
+    last_cross: Instant,
 }
 
 impl Engine {
@@ -83,6 +99,7 @@ impl Engine {
         on_status: Box<dyn Fn(Status) + Send>,
     ) -> Engine {
         let peer_os = cfg.read().unwrap().peer.as_ref().map(|p| p.os);
+        let saved_peer_displays = cfg.read().unwrap().peer_displays.clone();
         Engine {
             cfg,
             net,
@@ -93,6 +110,8 @@ impl Engine {
             peer_os,
             displays: vec![],
             displays_at: Instant::now() - Duration::from_secs(60),
+            local_displays: vec![],
+            peer_displays: saved_peer_displays,
             push: 0.0,
             pos: (0.0, 0.0),
             reclaim: 0.0,
@@ -102,10 +121,17 @@ impl Engine {
             hotkey_last_tap: None,
             clipboard: Clipboard::new(),
             last_wake: None,
+            pending_peer_side: None,
+            clean_disconnect: None,
+            exit_push: 0.0,
+            last_cross: Instant::now() - Duration::from_secs(10),
         }
     }
 
     pub fn run(mut self, rx: Receiver<Event>) {
+        self.local_displays = self.plat.display_infos();
+        self.displays = self.plat.displays();
+        self.displays_at = Instant::now();
         self.report();
         while let Ok(ev) = rx.recv() {
             match ev {
@@ -114,6 +140,7 @@ impl Engine {
                 Event::Connected => {
                     self.go_local();
                     self.connected = true;
+                    self.clean_disconnect = None;
                     let name = crate::machine_name();
                     self.net.send(&Msg::Hello {
                         name,
@@ -121,6 +148,15 @@ impl Engine {
                         macs: crate::wol::own_macs(),
                         version: env!("CARGO_PKG_VERSION").into(),
                     });
+                    self.local_displays = self.plat.display_infos();
+                    self.net.send(&Msg::Displays(self.local_displays.clone()));
+                    if let Some(side) = self.pending_peer_side.take() {
+                        self.net.send(&Msg::PeerSide(side));
+                    }
+                    if self.cfg.read().unwrap().forward_on_connect {
+                        log::info!("forward_on_connect: immediately driving peer");
+                        self.hand_over(None);
+                    }
                     self.report();
                 }
                 Event::Disconnected => {
@@ -129,6 +165,34 @@ impl Engine {
                     self.report();
                 }
                 Event::Ui(u) => self.on_ui(u),
+                Event::DisplaysChanged => {
+                    let updated = self.plat.display_infos();
+                    if !updated.is_empty() && updated != self.local_displays {
+                        log::info!("local display reconfigured: {updated:?}");
+                        self.local_displays = updated;
+                        self.displays = self.plat.displays();
+                        if self.connected {
+                            self.net.send(&Msg::Displays(self.local_displays.clone()));
+                        }
+                        self.report();
+                    }
+                }
+                Event::SystemSleep => {
+                    log::info!("system entering sleep");
+                    self.goodbye(crate::proto::ByeReason::Sleep);
+                }
+                Event::SystemShutdown => {
+                    log::info!("system shutting down");
+                    self.goodbye(crate::proto::ByeReason::Shutdown);
+                }
+                Event::SystemWake => {
+                    log::info!("system woke up");
+                    self.local_displays = self.plat.display_infos();
+                    self.displays = self.plat.displays();
+                    self.displays_at = Instant::now();
+                    self.net.reset();
+                    self.report();
+                }
             }
         }
     }
@@ -140,11 +204,23 @@ impl Engine {
             connected: self.connected,
             mode: self.mode,
             paused: c.paused,
+            local_displays: self.local_displays.clone(),
+            peer_displays: self.peer_displays.clone(),
+            clean_disconnect: self.clean_disconnect,
         });
     }
 
     fn displays(&mut self) -> &[Rect] {
         if self.displays_at.elapsed() > Duration::from_secs(2) || self.displays.is_empty() {
+            let updated = self.plat.display_infos();
+            if !updated.is_empty() && updated != self.local_displays {
+                log::info!("local display topology changed: {updated:?}");
+                self.local_displays = updated;
+                if self.connected {
+                    self.net.send(&Msg::Displays(self.local_displays.clone()));
+                }
+                self.report();
+            }
             self.displays = self.plat.displays();
             self.displays_at = Instant::now();
         }
@@ -167,16 +243,27 @@ impl Engine {
             }
             Ui::Refresh => self.report(),
             Ui::Quit => {
-                if self.mode == Mode::Controlling {
-                    self.net.send(&Msg::Leave { frac: None });
-                }
-                self.go_local();
+                self.goodbye(crate::proto::ByeReason::Quit);
                 RELEASED.store(true, std::sync::atomic::Ordering::SeqCst);
             }
             Ui::Repaired => {
                 self.peer_os = self.cfg.read().unwrap().peer.as_ref().map(|p| p.os);
                 self.net.reset();
                 self.report();
+            }
+            Ui::PeerSideChanged(side) => {
+                if self.connected {
+                    self.net.send(&Msg::PeerSide(side));
+                } else {
+                    self.pending_peer_side = Some(side);
+                }
+            }
+            Ui::PeerLayoutChanged { side, offset } => {
+                if self.connected {
+                    self.net.send(&Msg::PeerLayout { side, offset });
+                } else {
+                    self.pending_peer_side = Some(side);
+                }
             }
         }
     }
@@ -200,7 +287,13 @@ impl Engine {
             Mode::Local => self.hand_over(None),
             Mode::Controlling => {
                 self.net.send(&Msg::Leave { frac: None });
-                self.go_local();
+                let unified = self.cfg.read().unwrap().unified_desktop;
+                if unified {
+                    self.plat.set_capturing(false);
+                    self.mode = Mode::Controlled;
+                } else {
+                    self.go_local();
+                }
                 self.report();
             }
             Mode::Controlled => self.give_back(None),
@@ -258,37 +351,71 @@ impl Engine {
                 self.net.send(&m);
             }
             Mode::Controlled => {
-                // Someone grabbed this machine's own mouse: give it back to them.
-                if let Input::Move { dx, dy, .. } = i {
-                    self.reclaim += dx.abs() + dy.abs();
-                    if self.reclaim > 60.0 {
-                        self.give_back(None);
+                let unified = self.cfg.read().unwrap().unified_desktop;
+                if unified {
+                    if let Input::Move { x, y, dx, dy } = i {
+                        self.pos = (x, y);
+                        self.watch_edge(x, y, dx, dy);
+                    }
+                } else {
+                    // Someone grabbed this machine's own mouse: give it back to them.
+                    if let Input::Move { dx, dy, .. } = i {
+                        self.reclaim += dx.abs() + dy.abs();
+                        if self.reclaim > 40.0 {
+                            self.reclaim = 0.0;
+                            self.give_back(None);
+                        }
                     }
                 }
             }
         }
     }
 
+    fn in_cooldown(&self) -> bool {
+        if self.cfg.read().unwrap().ephemeral {
+            false
+        } else {
+            self.last_cross.elapsed() < Duration::from_millis(200)
+        }
+    }
+
     fn watch_edge(&mut self, x: f64, y: f64, dx: f64, dy: f64) {
-        let (side, resistance, paused) = {
+        if self.in_cooldown() {
+            return;
+        }
+        let (side, resistance, paused, peer_offset) = {
             let c = self.cfg.read().unwrap();
-            (c.peer_side, c.edge_resistance, c.paused)
+            (c.peer_side, c.edge_resistance, c.paused, c.peer_offset)
         };
         if paused || self.cfg.read().unwrap().peer.is_none() {
             return;
         }
         let ds = self.displays().to_vec();
-        let out = geometry::outward(side, dx, dy);
-        if !geometry::on_edge(&ds, x, y, side) || out < 0.0 {
+        if !geometry::on_edge(&ds, x, y, side) {
             self.push = 0.0;
             return;
         }
-        // Windows clamps the reported position at the edge, so pushing into it reads as no movement.
-        let stalled = dx == 0.0 && dy == 0.0;
-        if out == 0.0 && !stalled {
+        let out = geometry::outward(side, dx, dy);
+        // Only clear push if moving decisively away from the edge (ignore tiny hand tremor)
+        if out < -4.0 {
+            self.push = 0.0;
             return;
         }
-        self.push += out.max(1.0);
+
+        // When the cursor is at the physical edge, the OS clamps movement in the outward direction to 0.0.
+        // Parallel motion along the edge often has minor human hand tremor.
+        let stalled = match side {
+            Side::Left | Side::Right => dx == 0.0 && dy.abs() < 40.0,
+            Side::Top | Side::Bottom => dy == 0.0 && dx.abs() < 40.0,
+        };
+        if out <= 0.0 && !stalled {
+            return;
+        }
+
+        let frac = geometry::peer_frac_along(&ds, &self.peer_displays, x, y, side, peer_offset);
+
+        let push_inc = if out > 0.0 { out } else { 5.0 };
+        self.push += push_inc;
         if self.push < resistance {
             return;
         }
@@ -296,7 +423,7 @@ impl Engine {
         if self.cfg.read().unwrap().block_in_fullscreen && self.plat.fullscreen_app() {
             return;
         }
-        self.hand_over(Some(geometry::frac_along(&ds, x, y, side)));
+        self.hand_over(Some(frac));
     }
 
     fn send_clipboard(&mut self) {
@@ -316,6 +443,7 @@ impl Engine {
             self.wake();
             return;
         }
+        self.last_cross = Instant::now();
         self.send_clipboard();
         self.net.send(&Msg::Enter { frac });
         self.mode = Mode::Controlling;
@@ -326,10 +454,18 @@ impl Engine {
 
     /// We were being driven; stop, and tell the other side.
     fn give_back(&mut self, frac: Option<f64>) {
+        self.last_cross = Instant::now();
         self.release_all();
         self.send_clipboard();
+        let unified = self.cfg.read().unwrap().unified_desktop;
         self.net.send(&Msg::Leave { frac });
-        self.mode = Mode::Local;
+        if unified {
+            self.mode = Mode::Controlling;
+            self.plat.set_capturing(true);
+            log::info!("unified: handed cursor to peer, now capturing input for peer");
+        } else {
+            self.mode = Mode::Local;
+        }
         self.report();
     }
 
@@ -351,6 +487,22 @@ impl Engine {
         }
     }
 
+    fn goodbye(&mut self, reason: crate::proto::ByeReason) {
+        log::info!("sending goodbye to peer: {reason:?}");
+        if self.connected {
+            self.net.send(&Msg::Bye(reason));
+            std::thread::sleep(Duration::from_millis(80));
+        }
+        if self.mode == Mode::Controlling {
+            self.plat.set_capturing(false);
+        }
+        self.go_local();
+        self.connected = false;
+        self.clean_disconnect = Some(reason);
+        self.net.reset();
+        self.report();
+    }
+
     fn on_msg(&mut self, m: Msg) {
         match m {
             Msg::Hello { name, os, macs, version } => {
@@ -366,15 +518,55 @@ impl Engine {
                 }
                 c.save();
                 drop(c);
+                if !self.local_displays.is_empty() {
+                    self.net.send(&Msg::Displays(self.local_displays.clone()));
+                }
                 self.report();
             }
             Msg::Ping => {}
-            Msg::Clipboard(clip) => self.clipboard.apply(clip),
-            Msg::Enter { frac } => {
-                if self.mode == Mode::Controlling {
-                    // Both pushed at once; the newcomer wins.
-                    self.plat.set_capturing(false);
+            Msg::Displays(ds) => {
+                log::info!("peer reported {} displays: {ds:?}", ds.len());
+                self.peer_displays = ds.clone();
+                let mut c = self.cfg.write().unwrap();
+                if c.peer_displays != ds {
+                    c.peer_displays = ds;
+                    c.save();
                 }
+                drop(c);
+                self.report();
+            }
+            Msg::Clipboard(clip) => self.clipboard.apply(clip),
+            Msg::PeerSide(side) => {
+                self.pending_peer_side = None;
+                let opposite = side.opposite();
+                log::info!("peer reported peer_side {side:?}, updating our side to {opposite:?}");
+                let mut c = self.cfg.write().unwrap();
+                if c.peer_side != opposite {
+                    c.peer_side = opposite;
+                    c.save();
+                    drop(c);
+                    self.report();
+                }
+            }
+            Msg::PeerLayout { side, offset } => {
+                if !offset.is_finite() || offset.abs() > 20000.0 {
+                    log::warn!("ignoring invalid layout offset {offset}");
+                    return;
+                }
+                self.pending_peer_side = None;
+                let opposite = side.opposite();
+                let inv_offset = -offset;
+                log::info!("peer reported layout: {side:?} offset {offset}, updating our layout to {opposite:?} offset {inv_offset}");
+                let mut c = self.cfg.write().unwrap();
+                if c.peer_side != opposite || (c.peer_offset - inv_offset).abs() > 0.1 {
+                    c.peer_side = opposite;
+                    c.peer_offset = inv_offset;
+                    c.save();
+                    drop(c);
+                    self.report();
+                }
+            }
+            Msg::Enter { frac } => {
                 let side = self.cfg.read().unwrap().peer_side;
                 let ds = self.displays().to_vec();
                 let p = match frac {
@@ -383,23 +575,45 @@ impl Engine {
                 };
                 self.pos = p;
                 self.reclaim = 0.0;
+                self.exit_push = 0.0;
+                self.last_cross = Instant::now();
                 self.mode = Mode::Controlled;
+                self.plat.warp(p.0, p.1);
+                self.plat.set_capturing(false);
                 self.plat.move_to(p.0, p.1);
                 self.report();
             }
             Msg::Leave { frac } => {
                 let was = self.mode;
-                self.go_local();
-                if was == Mode::Controlling {
+                let unified = self.cfg.read().unwrap().unified_desktop;
+                self.exit_push = 0.0;
+                self.last_cross = Instant::now();
+                if unified {
                     if let Some(f) = frac {
                         let side = self.cfg.read().unwrap().peer_side;
                         let ds = self.displays().to_vec();
                         let (x, y) = geometry::entry_point(&ds, side, f);
+                        self.pos = (x, y);
                         self.plat.warp(x, y);
                     }
-                } else if was == Mode::Controlled {
-                    // The other side took its input back; hand it our clipboard.
+                    self.plat.set_capturing(false);
+                    self.mode = Mode::Controlled;
                     self.send_clipboard();
+                    log::info!("unified: cursor returned to this machine");
+                } else {
+                    if was == Mode::Controlling {
+                        if let Some(f) = frac {
+                            let side = self.cfg.read().unwrap().peer_side;
+                            let ds = self.displays().to_vec();
+                            let (x, y) = geometry::entry_point(&ds, side, f);
+                            self.plat.warp(x, y);
+                        }
+                    }
+                    self.go_local();
+                    if was == Mode::Controlled {
+                        // The other side took its input back; hand it our clipboard.
+                        self.send_clipboard();
+                    }
                 }
                 self.report();
             }
@@ -413,12 +627,30 @@ impl Engine {
                 match geometry::step(&ds, self.pos.0, self.pos.1, dx * scale, dy * scale, side) {
                     Step::Move(x, y) => {
                         self.pos = (x, y);
+                        self.exit_push = 0.0;
                         self.reclaim = 0.0;
                         self.plat.move_to(x, y);
                     }
-                    Step::Exit(f) => {
-                        if self.buttons_down.is_empty() {
-                            self.give_back(Some(f));
+                    Step::Exit(_) => {
+                        let out = geometry::outward(side, dx * scale, dy * scale);
+                        if out > 0.0 {
+                            self.exit_push += out;
+                        }
+                        let resistance = self.cfg.read().unwrap().edge_resistance;
+                        if self.buttons_down.is_empty()
+                            && self.exit_push >= resistance
+                            && !self.in_cooldown()
+                        {
+                            self.exit_push = 0.0;
+                            let frac = geometry::peer_frac_along(
+                                &ds,
+                                &self.peer_displays,
+                                self.pos.0,
+                                self.pos.1,
+                                side,
+                                self.cfg.read().unwrap().peer_offset,
+                            );
+                            self.give_back(Some(frac));
                         }
                     }
                 }
@@ -448,6 +680,23 @@ impl Engine {
                 self.plat.key(hid, down);
             }
             Msg::Media(m) => self.plat.media(m),
+            Msg::Bye(reason) => {
+                let peer_name = self.cfg.read().unwrap().peer.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| "The other machine".into());
+                let msg = match reason {
+                    crate::proto::ByeReason::Quit => format!("{peer_name} closed Bridge"),
+                    crate::proto::ByeReason::Sleep => format!("{peer_name} went to sleep"),
+                    crate::proto::ByeReason::Shutdown => format!("{peer_name} shut down"),
+                };
+                log::info!("peer cleanly disconnected: {msg}");
+                if self.mode == Mode::Controlling {
+                    self.plat.set_capturing(false);
+                }
+                self.go_local();
+                self.connected = false;
+                self.clean_disconnect = Some(reason);
+                self.net.reset();
+                self.report();
+            }
         }
     }
 }
@@ -503,6 +752,8 @@ mod e2e {
     struct Side {
         tx: Sender<Event>,
         fake: Arc<Fake>,
+        cfg: Arc<RwLock<Config>>,
+        status: Arc<Mutex<Option<Status>>>,
     }
 
     impl Side {
@@ -525,6 +776,14 @@ mod e2e {
     }
 
     fn pair_up() -> (Side, Side) {
+        pair_up_with_mode(false)
+    }
+
+    fn pair_up_unified() -> (Side, Side) {
+        pair_up_with_mode(true)
+    }
+
+    fn pair_up_with_mode(unified: bool) -> (Side, Side) {
         let gen = || snow::Builder::new(crate::net::NOISE.parse().unwrap()).generate_keypair().unwrap();
         let (ka, kb) = (gen(), gen());
         let (pa, pb) = (free_port(), free_port());
@@ -544,6 +803,7 @@ mod e2e {
             discovery: false,
             share_clipboard: false,
             ephemeral: true,
+            unified_desktop: unified,
             ..Default::default()
         };
         let start = |cfg: Config| {
@@ -551,9 +811,13 @@ mod e2e {
             let (tx, rx) = channel();
             let net = Net::start(cfg.clone(), tx.clone()).unwrap();
             let fake = Arc::new(Fake::default());
-            let engine = Engine::new(cfg, net, fake.clone(), Box::new(|_| {}));
+            let status = Arc::new(Mutex::new(None));
+            let s = status.clone();
+            let engine = Engine::new(cfg.clone(), net, fake.clone(), Box::new(move |st| {
+                *s.lock().unwrap() = Some(st);
+            }));
             std::thread::spawn(move || engine.run(rx));
-            Side { tx, fake }
+            Side { tx, fake, cfg, status }
         };
         // A (think: the Mac) has the PC to its right; B has the Mac to its left.
         let a = start(mk(&ka, &kb, pa, pb, crate::proto::Side::Right));
@@ -631,6 +895,29 @@ mod e2e {
     }
 
     #[test]
+    fn clean_goodbye_on_sleep_or_quit() {
+        let (a, b) = pair_up();
+        connected(&a, &b);
+        a.wait_for("capture true");
+        a.input(Input::Key { hid: 0x05, down: true });
+        b.wait_for("key 0x5 true");
+
+        // Machine A goes to sleep
+        a.tx.send(Event::SystemSleep).unwrap();
+        // A releases capture immediately
+        a.wait_for("capture false");
+        // B releases held keys immediately upon clean goodbye
+        b.wait_for("key 0x5 false");
+
+        // B should cleanly mark connected as false
+        let t = Instant::now();
+        while b.status.lock().unwrap().as_ref().is_some_and(|s| s.connected) && t.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!b.status.lock().unwrap().as_ref().is_some_and(|s| s.connected), "B should be cleanly disconnected");
+    }
+
+    #[test]
     fn hotkey_and_reclaim() {
         let (a, b) = pair_up();
         connected(&a, &b);
@@ -658,6 +945,96 @@ mod e2e {
         let t = Instant::now();
         while a.fake.log.lock().unwrap().iter().filter(|l| *l == "capture false").count() < 2 {
             assert!(t.elapsed() < Duration::from_secs(5), "A never released: {:?}", a.fake.log.lock().unwrap());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn unified_round_trip_and_keyboard_forwarding() {
+        let (a, b) = pair_up_unified();
+
+        // Push into A's right edge: B's pointer appears at left edge.
+        connected(&a, &b);
+        a.wait_for("capture true");
+        b.wait_for("move 2,400");
+
+        // While cursor is on B, A's keyboard drives B.
+        a.input(Input::Key { hid: 0x04, down: true });
+        a.input(Input::Key { hid: 0x04, down: false });
+        b.wait_for("key 0x4 true");
+        b.wait_for("key 0x4 false");
+
+        // Now move cursor off B's left edge (towards A): hands cursor back to A.
+        b.input(Input::Move { x: 0.0, y: 400.0, dx: -500.0, dy: 0.0 });
+        a.wait_for("capture false");
+        a.wait_for("move 997,400");
+        b.wait_for("capture true");
+
+        // Now the cursor is back on A.
+        // User types on B (e.g. Mac keyboard while cursor is on Windows):
+        // B's keyboard is captured and forwarded to A!
+        b.input(Input::Key { hid: 0x05, down: true });
+        b.input(Input::Key { hid: 0x05, down: false });
+        a.wait_for("key 0x5 true");
+        a.wait_for("key 0x5 false");
+
+        // User moves mouse on B: B's mouse is forwarded to A and moves A's cursor.
+        b.input(Input::Move { x: 0.0, y: 0.0, dx: -10.0, dy: 20.0 });
+        a.wait_for("move 987,420");
+    }
+
+    #[test]
+    fn peer_side_layout_sync() {
+        let (a, b) = pair_up();
+        connected(&a, &b);
+
+        // A changes side to Top -> B should automatically switch to Bottom
+        a.tx.send(Event::Ui(Ui::PeerSideChanged(crate::proto::Side::Top))).unwrap();
+        let t = Instant::now();
+        while b.cfg.read().unwrap().peer_side != crate::proto::Side::Bottom {
+            assert!(t.elapsed() < Duration::from_secs(5), "B never updated peer_side to Bottom");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        // B changes side to Right -> A should automatically switch to Left
+        b.tx.send(Event::Ui(Ui::PeerSideChanged(crate::proto::Side::Right))).unwrap();
+        let t = Instant::now();
+        while a.cfg.read().unwrap().peer_side != crate::proto::Side::Left {
+            assert!(t.elapsed() < Duration::from_secs(5), "A never updated peer_side to Left");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn display_info_exchange() {
+        let (a, b) = pair_up();
+        connected(&a, &b);
+
+        // Verify that B received A's display info
+        let t = Instant::now();
+        loop {
+            if let Some(st) = b.status.lock().unwrap().as_ref() {
+                if !st.peer_displays.is_empty() {
+                    assert_eq!(st.peer_displays[0].width, 1000.0);
+                    assert_eq!(st.peer_displays[0].height, 800.0);
+                    break;
+                }
+            }
+            assert!(t.elapsed() < Duration::from_secs(5), "B never received A's display info");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        // Verify that A received B's display info
+        let t = Instant::now();
+        loop {
+            if let Some(st) = a.status.lock().unwrap().as_ref() {
+                if !st.peer_displays.is_empty() {
+                    assert_eq!(st.peer_displays[0].width, 1000.0);
+                    assert_eq!(st.peer_displays[0].height, 800.0);
+                    break;
+                }
+            }
+            assert!(t.elapsed() < Duration::from_secs(5), "A never received B's display info");
             std::thread::sleep(Duration::from_millis(20));
         }
     }
