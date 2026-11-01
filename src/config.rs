@@ -43,6 +43,10 @@ pub struct Config {
     pub swap_cmd_ctrl: bool,
     /// Double-tap this key (HID usage) to switch. Defaults: Right Option on Mac, Right Ctrl on PC.
     pub hotkey: u16,
+    /// Unified Desktop mode: route any mouse/keyboard to whichever screen has the active cursor.
+    pub unified_desktop: bool,
+    /// When connecting, start by forwarding input to the peer if true.
+    pub forward_on_connect: bool,
     /// Clipboard text, images and files travel when you switch.
     pub share_clipboard: bool,
     /// Files bigger than this (MB, total) are left behind.
@@ -75,6 +79,8 @@ impl Default for Config {
             invert_incoming_scroll: false,
             swap_cmd_ctrl: true,
             hotkey: if mac { crate::keymap::RALT } else { crate::keymap::RCTRL },
+            unified_desktop: true,
+            forward_on_connect: false,
             share_clipboard: true,
             max_clipboard_files_mb: 200,
             block_in_fullscreen: true,

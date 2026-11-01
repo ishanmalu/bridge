@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" width="1200" height="750">
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    
+    <linearGradient id="winGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+
+    <linearGradient id="macGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#6d28d9" />
+    </linearGradient>
+
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9" />
+    </linearGradient>
+
+    <linearGradient id="accentArrow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#c084fc" />
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+
+    <filter id="glowLight" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <style>
+    .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 26px; font-weight: 800; fill: #f8fafc; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; fill: #94a3b8; }
+    .card-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 19px; font-weight: 700; }
+    .screen-tag { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .item-label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 600; fill: #f1f5f9; }
+    .item-desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; fill: #94a3b8; }
+    .badge-local { fill: #10b981; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; font-weight: 700; }
+    .badge-net { fill: #38bdf8; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; font-weight: 700; }
+    .center-note { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; font-weight: 600; fill: #cbd5e1; }
+    .footer-text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; fill: #64748b; font-weight: 500; }
+  </style>
+
+  <!-- Deep Slate Canvas Background -->
+  <rect width="1200" height="750" fill="url(#bgGrad)" />
+
+  <!-- Grid accent dots -->
+  <g opacity="0.1">
+    <circle cx="100" cy="80" r="1.5" fill="#ffffff" /><circle cx="200" cy="80" r="1.5" fill="#ffffff" /><circle cx="300" cy="80" r="1.5" fill="#ffffff" /><circle cx="400" cy="80" r="1.5" fill="#ffffff" /><circle cx="500" cy="80" r="1.5" fill="#ffffff" /><circle cx="600" cy="80" r="1.5" fill="#ffffff" /><circle cx="700" cy="80" r="1.5" fill="#ffffff" /><circle cx="800" cy="80" r="1.5" fill="#ffffff" /><circle cx="900" cy="80" r="1.5" fill="#ffffff" /><circle cx="1000" cy="80" r="1.5" fill="#ffffff" /><circle cx="1100" cy="80" r="1.5" fill="#ffffff" />
+    <circle cx="100" cy="180" r="1.5" fill="#ffffff" /><circle cx="1100" cy="180" r="1.5" fill="#ffffff" />
+    <circle cx="100" cy="620" r="1.5" fill="#ffffff" /><circle cx="1100" cy="620" r="1.5" fill="#ffffff" />
+  </g>
+
+  <!-- Header -->
+  <g transform="translate(60, 50)">
+    <!-- App Logo Icon -->
+    <rect x="0" y="0" width="44" height="44" rx="10" fill="url(#accentArrow)" />
+    <path d="M12 22 L22 12 L32 22 M22 12 L22 32" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    
+    <text x="60" y="24" class="title">Bridge: Arquitectura de Foco Global Unificado</text>
+    <text x="60" y="44" class="subtitle">Cualquier periférico que toques actúa sobre la pantalla donde se encuentre el cursor activo</text>
+  </g>
+
+  <!-- ================= STATE 1: FOCO EN WINDOWS ================= -->
+  <g transform="translate(60, 130)" filter="url(#shadow)">
+    <!-- Card Frame -->
+    <rect width="500" height="470" rx="18" fill="url(#cardBg)" stroke="#0284c7" stroke-width="2" />
+    
+    <!-- Header Badge -->
+    <rect x="24" y="24" width="180" height="28" rx="6" fill="#0369a1" fill-opacity="0.3" stroke="#0284c7" stroke-width="1" />
+    <text x="36" y="43" class="screen-tag" fill="#38bdf8">● Estado 1: Foco en Windows</text>
+    <text x="24" y="80" class="card-title" fill="#f8fafc">El Cursor está en Windows</text>
+    <text x="24" y="100" class="item-desc">Todas las acciones se ejecutan en la máquina Windows</text>
+
+    <!-- Monitor Graphic Windows -->
+    <g transform="translate(24, 120)">
+      <rect width="452" height="60" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1" />
+      <!-- Windows Logo Mini -->
+      <path d="M20 22 L29 20.8 V28.8 L20 28.8 Z M31 20.5 L42 19 V28.8 L31 28.8 Z M20 30.5 L29 30.5 V38.5 L20 37.3 Z M31 30.5 L42 30.5 V40.3 L31 38.8 Z" fill="#0ea5e9" />
+      <text x="54" y="32" class="item-label">Pantalla Windows (Activa)</text>
+      <text x="54" y="48" class="item-desc">Cursor visible y recibiendo foco del sistema</text>
+      <circle cx="420" cy="30" r="8" fill="#10b981" />
+      <circle cx="420" cy="30" r="14" fill="#10b981" fill-opacity="0.25" />
+    </g>
+
+    <!-- Items List -->
+    <!-- Item 1: Raton Windows -->
+    <g transform="translate(24, 195)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#334155" stroke-width="1" />
+      <text x="20" y="26" class="item-label">🖱️ Ratón de Windows</text>
+      <text x="20" y="44" class="item-desc">Conectado físicamente al PC</text>
+      <rect x="360" y="16" width="75" height="26" rx="6" fill="#065f46" />
+      <text x="375" y="33" class="badge-local">LOCAL</text>
+    </g>
+
+    <!-- Item 2: Teclado Mac -->
+    <g transform="translate(24, 265)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#0284c7" stroke-width="1.5" />
+      <text x="20" y="26" class="item-label">⌨️ Teclado del Mac</text>
+      <text x="20" y="44" class="item-desc">Capturado en Mac y transmitido vía Noise/TCP</text>
+      <rect x="330" y="16" width="105" height="26" rx="6" fill="#075985" />
+      <text x="342" y="33" class="badge-net">VIA RED (0ms)</text>
+    </g>
+
+    <!-- Item 3: Trackpad Mac -->
+    <g transform="translate(24, 335)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#334155" stroke-width="1" />
+      <text x="20" y="26" class="item-label">👆 Trackpad / Ratón del Mac</text>
+      <text x="20" y="44" class="item-desc">Si lo tocas, también mueve el cursor en Windows</text>
+      <rect x="330" y="16" width="105" height="26" rx="6" fill="#075985" />
+      <text x="342" y="33" class="badge-net">VIA RED</text>
+    </g>
+
+    <!-- Item 4: Teclado Windows -->
+    <g transform="translate(24, 405)">
+      <rect width="452" height="45" rx="8" fill="#1e293b" fill-opacity="0.4" stroke="#334155" stroke-width="1" />
+      <text x="20" y="27" class="item-desc">⌨️ Teclado de Windows (si tienes uno): Funciona en local</text>
+    </g>
+  </g>
+
+  <!-- ================= TRANSITION DIVIDER ================= -->
+  <g transform="translate(565, 300)">
+    <!-- Connection Glow Line -->
+    <line x1="0" y1="30" x2="70" y2="30" stroke="url(#accentArrow)" stroke-width="4" stroke-linecap="round" stroke-dasharray="6,4" />
+    
+    <!-- Central Switch Icon Button -->
+    <circle cx="35" cy="30" r="28" fill="#0f172a" stroke="#818cf8" stroke-width="2" filter="url(#shadow)" />
+    <path d="M26 24 L34 18 L34 22 L44 22 L44 26 L34 26 L34 30 Z" fill="#38bdf8" />
+    <path d="M44 36 L36 42 L36 38 L26 38 L26 34 L36 34 L36 30 Z" fill="#c084fc" />
+
+    <text x="35" y="80" text-anchor="middle" class="center-note">Cruzar el borde</text>
+    <text x="35" y="98" text-anchor="middle" class="item-desc">o doble toque</text>
+    <text x="35" y="114" text-anchor="middle" class="item-desc" fill="#818cf8">Right Option / Ctrl</text>
+  </g>
+
+  <!-- ================= STATE 2: FOCO EN MAC ================= -->
+  <g transform="translate(640, 130)" filter="url(#shadow)">
+    <!-- Card Frame -->
+    <rect width="500" height="470" rx="18" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="2" />
+    
+    <!-- Header Badge -->
+    <rect x="24" y="24" width="160" height="28" rx="6" fill="#5b21b6" fill-opacity="0.3" stroke="#8b5cf6" stroke-width="1" />
+    <text x="36" y="43" class="screen-tag" fill="#c084fc">● Estado 2: Foco en Mac</text>
+    <text x="24" y="80" class="card-title" fill="#f8fafc">El Cursor está en el Mac</text>
+    <text x="24" y="100" class="item-desc">Todas las acciones se ejecutan en el Mac</text>
+
+    <!-- Monitor Graphic Mac -->
+    <g transform="translate(24, 120)">
+      <rect width="452" height="60" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1" />
+      <!-- Apple Logo Mini -->
+      <path d="M30 22 C31 20.8 31.7 19.2 31.3 18 C30.2 18.2 28.8 19 28.1 20 C27.5 20.8 27 22.4 27.4 23.6 C28.6 23.5 29.8 22.8 30 22 Z M34 29 C34 26 36.5 24.6 36.6 24.5 C35.2 22.5 33 22.2 32.2 22.1 C30.4 21.9 28.6 23.2 27.7 23.2 C26.7 23.2 25.3 22.1 23.9 22.1 C22 22.1 20.2 23.2 19.2 25 C17.2 28.6 18.7 34 20.6 36.8 C21.6 38.1 22.6 39.7 24.1 39.6 C25.5 39.5 26 38.7 27.7 38.7 C29.3 38.7 29.8 39.6 31.2 39.6 C32.7 39.6 33.7 38.2 34.6 36.8 C35.7 35.3 36.1 33.8 36.2 33.7 C36 33.6 34 32.8 34 29 Z" fill="#c084fc" />
+      <text x="54" y="32" class="item-label">Pantalla Mac (Activa)</text>
+      <text x="54" y="48" class="item-desc">Cursor visible y recibiendo foco de macOS</text>
+      <circle cx="420" cy="30" r="8" fill="#10b981" />
+      <circle cx="420" cy="30" r="14" fill="#10b981" fill-opacity="0.25" />
+    </g>
+
+    <!-- Items List -->
+    <!-- Item 1: Raton Windows -->
+    <g transform="translate(24, 195)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#8b5cf6" stroke-width="1.5" />
+      <text x="20" y="26" class="item-label">🖱️ Ratón de Windows</text>
+      <text x="20" y="44" class="item-desc">Capturado en Windows y transmitido vía Noise/TCP</text>
+      <rect x="330" y="16" width="105" height="26" rx="6" fill="#581c87" />
+      <text x="342" y="33" class="badge-net" fill="#e9d5ff">VIA RED (0ms)</text>
+    </g>
+
+    <!-- Item 2: Teclado Mac -->
+    <g transform="translate(24, 265)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#334155" stroke-width="1" />
+      <text x="20" y="26" class="item-label">⌨️ Teclado del Mac</text>
+      <text x="20" y="44" class="item-desc">Escribe directamente en tus aplicaciones de macOS</text>
+      <rect x="360" y="16" width="75" height="26" rx="6" fill="#065f46" />
+      <text x="375" y="33" class="badge-local">LOCAL</text>
+    </g>
+
+    <!-- Item 3: Trackpad Mac -->
+    <g transform="translate(24, 335)">
+      <rect width="452" height="58" rx="8" fill="#1e293b" fill-opacity="0.6" stroke="#334155" stroke-width="1" />
+      <text x="20" y="26" class="item-label">👆 Trackpad / Ratón del Mac</text>
+      <text x="20" y="44" class="item-desc">Mueve el cursor nativo de macOS</text>
+      <rect x="360" y="16" width="75" height="26" rx="6" fill="#065f46" />
+      <text x="375" y="33" class="badge-local">LOCAL</text>
+    </g>
+
+    <!-- Item 4: Teclado Windows -->
+    <g transform="translate(24, 405)">
+      <rect width="452" height="45" rx="8" fill="#1e293b" fill-opacity="0.4" stroke="#334155" stroke-width="1" />
+      <text x="20" y="27" class="item-desc">⌨️ Teclado de Windows (si tienes uno): Transmitido al Mac</text>
+    </g>
+  </g>
+
+  <!-- ================= FOOTER / SPECS BAR ================= -->
+  <g transform="translate(60, 630)">
+    <rect width="1080" height="60" rx="12" fill="#0f172a" stroke="#1e293b" stroke-width="1" />
+    
+    <g transform="translate(30, 25)">
+      <circle cx="6" cy="6" r="4" fill="#38bdf8" />
+      <text x="20" y="10" class="footer-text"><tspan fill="#f1f5f9" font-weight="700">Portapapeles:</tspan> Copia/Pega texto, imágenes y archivos automáticamente</text>
+    </g>
+
+    <g transform="translate(420, 25)">
+      <circle cx="6" cy="6" r="4" fill="#a855f7" />
+      <text x="20" y="10" class="footer-text"><tspan fill="#f1f5f9" font-weight="700">Mapeo de teclas:</tspan> Cmd ↔ Ctrl automático entre Mac y PC</text>
+    </g>
+
+    <g transform="translate(800, 25)">
+      <circle cx="6" cy="6" r="4" fill="#10b981" />
+      <text x="20" y="10" class="footer-text"><tspan fill="#f1f5f9" font-weight="700">Seguridad:</tspan> Cifrado Noise punto a punto en LAN</text>
+    </g>
+  </g>
+</svg>

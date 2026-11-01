@@ -101,6 +101,8 @@ PC: `%APPDATA%\Bridge\config.toml`), then quit and reopen Bridge.
 | `swap_cmd_ctrl` | `true` | |
 | `share_clipboard`, `max_clipboard_files_mb` | `true`, `200` | |
 | `block_in_fullscreen` | `true` | Windows: a full-screen app keeps the pointer (hotkey still works) |
+| `unified_desktop` | `true` | Unified Follow-the-Cursor: all mouse/keyboard inputs follow whichever screen has the active cursor |
+| `forward_on_connect` | `false` | Immediately capture and forward input to peer upon connection |
 | `port`, `discovery` | `24800`, `true` | listening port; mDNS lookup of the other machine |
 
 ## Troubleshooting

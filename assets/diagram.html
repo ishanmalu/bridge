@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bridge - Arquitectura de Foco Global Unificado</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      width: 100%;
+    }
+    header {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .badge-tag {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #94a3b8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 20px;
+      align-items: center;
+    }
+    .card {
+      background: #131b2e;
+      border-radius: 16px;
+      padding: 24px;
+      border: 2px solid #1e293b;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s ease;
+    }
+    .card.win {
+      border-color: #0284c7;
+      background: linear-gradient(180deg, #132238 0%, #0d1527 100%);
+    }
+    .card.mac {
+      border-color: #8b5cf6;
+      background: linear-gradient(180deg, #20163b 0%, #0f1026 100%);
+    }
+    .card-header {
+      margin-bottom: 18px;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .screen-preview {
+      background: #060913;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .screen-preview .info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+    .device-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .device-item {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .device-item.highlight-win {
+      border-color: #0284c7;
+      background: rgba(2, 132, 199, 0.1);
+    }
+    .device-item.highlight-mac {
+      border-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.1);
+    }
+    .device-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .device-detail {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+    .tag-local {
+      background: #065f46;
+      color: #34d399;
+    }
+    .tag-net-win {
+      background: #0369a1;
+      color: #7dd3fc;
+    }
+    .tag-net-mac {
+      background: #581c87;
+      color: #e9d5ff;
+    }
+    .divider-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      text-align: center;
+    }
+    .switch-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 2px solid #818cf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 15px rgba(129, 140, 248, 0.3);
+    }
+    .divider-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+    .divider-sub {
+      font-size: 11px;
+      color: #818cf8;
+    }
+    footer {
+      margin-top: 30px;
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    footer strong {
+      color: #f1f5f9;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge-tag">ARQUITECTURA DE FOCO UNIFICADO</div>
+    <h1>Bridge: Un Solo Escritorio para Mac y Windows</h1>
+    <p class="subtitle">Cualquier periférico que uses actúa sobre la pantalla donde esté el cursor activo</p>
+  </header>
+
+  <div class="grid">
+    <!-- Card Windows Activo -->
+    <div class="card win">
+      <div class="card-header">
+        <div style="color: #38bdf8; font-size: 12px; font-weight: 700; text-transform: uppercase;">Estado 1</div>
+        <div class="card-title">Cursor en Pantalla Windows</div>
+        <div class="card-desc">El foco del sistema está en el PC</div>
+      </div>
+
+      <div class="screen-preview">
+        <div class="info">
+          <span style="font-size: 18px;">🪟</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 700;">Pantalla Windows</div>
+            <div style="font-size: 11px; color: #94a3b8;">Cursor visible</div>
+          </div>
+        </div>
+        <div class="status-dot"></div>
+      </div>
+
+      <div class="device-list">
+        <div class="device-item">
+          <div>
+            <div class="device-name">🖱️ Ratón de Windows</div>
+            <div class="device-detail">Mueve cursor en Windows</div>
+          </div>
+          <span class="tag tag-local">LOCAL</span>
+        </div>
+
+        <div class="device-item highlight-win">
+          <div>
+            <div class="device-name">⌨️ Teclado del Mac</div>
+            <div class="device-detail">Capturado y transmitido por LAN</div>
+          </div>
+          <span class="tag tag-net-win">POR RED (&lt;1ms)</span>
+        </div>
+
+        <div class="device-item highlight-win">
+          <div>
+            <div class="device-name">👆 Trackpad del Mac</div>
+            <div class="device-detail">También mueve cursor en Windows</div>
+          </div>
+          <span class="tag tag-net-win">POR RED</span>
+        </div>
+
+        <div class="device-item" style="opacity: 0.6;">
+          <div>
+            <div class="device-name">⌨️ Teclado de Windows</div>
+            <div class="device-detail">Escribe en Windows si se usa</div>
+          </div>
+          <span class="tag tag-local">LOCAL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider / Transition -->
+    <div class="divider-col">
+      <div class="switch-icon">⇄</div>
+      <div class="divider-label">Cruzar borde</div>
+      <div class="divider-sub">o doble toque<br>Right Option / Ctrl</div>
+    </div>
+
+    <!-- Card Mac Activo -->
+    <div class="card mac">
+      <div class="card-header">
+        <div style="color: #c084fc; font-size: 12px; font-weight: 700; text-transform: uppercase;">Estado 2</div>
+        <div class="card-title">Cursor en Pantalla Mac</div>
+        <div class="card-desc">El foco del sistema está en el Mac</div>
+      </div>
+
+      <div class="screen-preview">
+        <div class="info">
+          <span style="font-size: 18px;">🍎</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 700;">Pantalla Mac</div>
+            <div style="font-size: 11px; color: #94a3b8;">Cursor visible</div>
+          </div>
+        </div>
+        <div class="status-dot"></div>
+      </div>
+
+      <div class="device-list">
+        <div class="device-item highlight-mac">
+          <div>
+            <div class="device-name">🖱️ Ratón de Windows</div>
+            <div class="device-detail">Mueve el cursor en el Mac</div>
+          </div>
+          <span class="tag tag-net-mac">POR RED (&lt;1ms)</span>
+        </div>
+
+        <div class="device-item">
+          <div>
+            <div class="device-name">⌨️ Teclado del Mac</div>
+            <div class="device-detail">Escribe nativo en apps de Mac</div>
+          </div>
+          <span class="tag tag-local">LOCAL</span>
+        </div>
+
+        <div class="device-item">
+          <div>
+            <div class="device-name">👆 Trackpad del Mac</div>
+            <div class="device-detail">Mueve cursor nativo en Mac</div>
+          </div>
+          <span class="tag tag-local">LOCAL</span>
+        </div>
+
+        <div class="device-item" style="opacity: 0.6;">
+          <div>
+            <div class="device-name">⌨️ Teclado de Windows</div>
+            <div class="device-detail">Escribe en Mac si se usa</div>
+          </div>
+          <span class="tag tag-net-mac">POR RED</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>📋 <strong>Portapapeles:</strong> Copia/pega texto, imágenes y archivos entre ambos</div>
+    <div>⌨️ <strong>Mapeo:</strong> Cmd ↔ Ctrl automático</div>
+    <div>🔒 <strong>Seguridad:</strong> Cifrado local Noise KK</div>
+  </footer>
+</div>
+
+</body>
+</html>

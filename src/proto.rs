@@ -37,6 +37,17 @@ pub enum Side {
     Bottom,
 }
 
+impl Side {
+    pub fn opposite(self) -> Side {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+            Side::Top => Side::Bottom,
+            Side::Bottom => Side::Top,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Media {
     PlayPause,
@@ -76,4 +87,19 @@ pub enum Msg {
     Key { hid: u16, down: bool },
     Media(Media),
     Clipboard(Clip),
+    /// The sender changed which side this machine sits on; recipient sets the opposite side.
+    PeerSide(Side),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opposite_sides() {
+        assert_eq!(Side::Left.opposite(), Side::Right);
+        assert_eq!(Side::Right.opposite(), Side::Left);
+        assert_eq!(Side::Top.opposite(), Side::Bottom);
+        assert_eq!(Side::Bottom.opposite(), Side::Top);
+    }
 }

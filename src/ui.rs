@@ -418,6 +418,10 @@ impl App {
         if key == "paused" {
             let _ = self.tx.send(Event::Ui(Ui::Refresh));
         }
+        if key == "peer_side" {
+            let side = self.cfg.read().unwrap().peer_side;
+            let _ = self.tx.send(Event::Ui(Ui::PeerSideChanged(side)));
+        }
     }
 
     fn ipc(&mut self, target: &EventLoopWindowTarget<UserEvent>, page: Page, body: &str) {
@@ -715,9 +719,17 @@ pub fn run() {
                     .with_icon(tray_icon(TrayState::Off));
                 #[cfg(target_os = "macos")]
                 {
-                    b = b.with_icon_as_template(true);
+                    b = b.with_icon_as_template(true).with_title("Bridge");
                 }
-                tray = b.build().ok();
+                match b.build() {
+                    Ok(t) => {
+                        log::info!("tray icon created successfully");
+                        tray = Some(t);
+                    }
+                    Err(e) => {
+                        log::error!("FAILED to create tray icon: {e:?}");
+                    }
+                }
                 if first_run_needed(&cfg.read().unwrap()) {
                     app.open(target, Page::Welcome);
                 }
@@ -795,6 +807,8 @@ pub fn run() {
                 };
                 if let Some(t) = &tray {
                     let _ = t.set_tooltip(Some(format!("Bridge: {text}")));
+                    #[cfg(target_os = "macos")]
+                    let _ = t.set_title(Some("Bridge"));
                     if tray_state != Some(state) {
                         let _ = t.set_icon(Some(tray_icon(state)));
                         #[cfg(target_os = "macos")]
